@@ -18,7 +18,6 @@ export interface StreamerItem {
     youtubeUrl?: string
     fanCafeUrl?: string
     affiliations: StreamerAffiliation[]
-    scheduleSourceTypes: string[]
 }
 
 export interface StreamerListResponse {

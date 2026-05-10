@@ -193,13 +193,12 @@ export default function StreamersPage() {
             </div>
 
             <div className={panelClass}>
-                <div className="grid grid-cols-[56px_minmax(0,2fr)_minmax(0,1.5fr)_110px_minmax(0,1.4fr)_52px_126px] items-center gap-3 border-b border-[#3a3a44] px-4 py-3 text-center text-xs font-semibold text-[#848494]">
+                <div className="grid grid-cols-[56px_minmax(0,2fr)_minmax(0,1.5fr)_110px_minmax(0,1.4fr)_126px] items-center gap-3 border-b border-[#3a3a44] px-4 py-3 text-center text-xs font-semibold text-[#848494]">
                     <div>아바타</div>
                     <div className="text-left">이름/닉네임</div>
                     <div className="text-left">채널ID</div>
                     <div>팔로워</div>
                     <div className="text-left">소속</div>
-                    <div>수집</div>
                     <div>작업</div>
                 </div>
 
@@ -218,7 +217,7 @@ export default function StreamersPage() {
                             return (
                                 <li
                                     key={streamer.id}
-                                    className="grid grid-cols-[56px_minmax(0,2fr)_minmax(0,1.5fr)_110px_minmax(0,1.4fr)_52px_126px] items-center gap-3 px-4 py-3 transition hover:bg-[#26262e]/60"
+                                    className="grid grid-cols-[56px_minmax(0,2fr)_minmax(0,1.5fr)_110px_minmax(0,1.4fr)_126px] items-center gap-3 px-4 py-3 transition hover:bg-[#26262e]/60"
                                 >
                                     <div className="flex justify-center">
                                         <Avatar streamer={streamer} />
@@ -286,27 +285,7 @@ export default function StreamersPage() {
                                         )}
                                     </div>
 
-                                    <div className="flex flex-wrap justify-center gap-1">
-                                        {(streamer.scheduleSourceTypes ?? []).length > 0 ? (
-                                            (streamer.scheduleSourceTypes ?? []).map((type) => (
-                                                <span
-                                                    key={type}
-                                                    className={cn(
-                                                        'rounded-full border px-1.5 py-0.5 text-[10px] font-semibold',
-                                                        type === 'chzzk_community' || type === 'chzzk'
-                                                            ? 'border-green-500/35 bg-green-500/10 text-green-300'
-                                                            : type === 'fan_cafe'
-                                                              ? 'border-orange-500/35 bg-orange-500/10 text-orange-300'
-                                                              : 'border-[#3a3a44] bg-[#26262e] text-[#adadb8]',
-                                                    )}
-                                                >
-                                                    {type === 'chzzk_community' ? '치지직' : type === 'fan_cafe' ? '팬카페' : type}
-                                                </span>
-                                            ))
-                                        ) : (
-                                            <span className="text-xs text-[#848494]">-</span>
-                                        )}
-                                    </div>
+
 
                                     <div className="flex items-center justify-center gap-1.5">
                                         <button

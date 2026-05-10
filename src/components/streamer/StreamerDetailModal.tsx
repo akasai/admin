@@ -14,7 +14,7 @@ import { ModalOverlay } from '../ModalOverlay'
 import { Avatar } from './Avatar'
 import { AffiliationSectionDropdown } from './AffiliationSectionDropdown'
 import { AliasSection } from './AliasSection'
-import { ScheduleSourceSection } from './ScheduleSourceSection'
+
 import { formatFollowerCount, normalizeInput } from '../../utils/format'
 import partnerMark from '../../assets/mark.png'
 import chzzkIcon from '../../assets/chzzk_icon.png'
@@ -45,7 +45,7 @@ export function StreamerDetailModal({
     const [isProGamer, setIsProGamer] = useState(streamer.isProGamer)
     const [affiliationIds, setAffiliationIds] = useState<number[]>(streamer.affiliations.map((a) => a.id))
     const [isEditingNickname, setIsEditingNickname] = useState(false)
-    const [isSourcePending, setIsSourcePending] = useState(false)
+
     const [isAliasPending, setIsAliasPending] = useState(false)
 
     useEffect(() => {
@@ -56,7 +56,7 @@ export function StreamerDetailModal({
         setIsProGamer(streamer.isProGamer)
         setAffiliationIds(streamer.affiliations.map((a) => a.id))
         setIsEditingNickname(false)
-        setIsSourcePending(false)
+
     }, [streamer])
 
     const originalAffIds = streamer.affiliations.map((a) => a.id)
@@ -69,7 +69,7 @@ export function StreamerDetailModal({
         affiliationIds.length !== originalAffIds.length ||
         affiliationIds.some((id) => !originalAffIds.includes(id))
 
-    const isAnyPending = pendingSave || pendingDelete || isSourcePending || isAliasPending
+    const isAnyPending = pendingSave || pendingDelete || isAliasPending
 
     const channelLink = streamer.channelId ? `https://chzzk.naver.com/${streamer.channelId}` : null
     const displayName = nickname.length > 0 && nickname !== streamer.name ? nickname : streamer.name
@@ -295,17 +295,7 @@ export function StreamerDetailModal({
                     </div>
                 </div>
 
-                <div className="space-y-3">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-[#848494]">수집 소스</h3>
-                    <div className="rounded-xl border border-[#3a3a44]/50 bg-[#1a1a22] p-4">
-                        <ScheduleSourceSection
-                            streamerId={streamer.id}
-                            streamerName={streamer.name}
-                            channelId={streamer.channelId}
-                            onPendingChange={setIsSourcePending}
-                        />
-                    </div>
-                </div>
+
             </div>
 
             <div className="flex items-center justify-between gap-2 border-t border-[#3a3a44] px-6 py-4">

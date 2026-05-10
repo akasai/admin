@@ -69,3 +69,4 @@ export type {
 } from './streamer'
 
 export type { NoticeItem, ListNoticesResponse, CreateNoticeRequest, UpdateNoticeRequest } from './notice'
+export type { StagingItem, StagingItemRaw, StagingParticipant, StagingDetail, StagingDetailRaw, UpdateStagingRequest } from './staging'

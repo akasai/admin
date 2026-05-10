@@ -13,6 +13,7 @@ const BannerManagePage = lazy(() => import('../pages/BannerManagePage'))
 const NoticeManagePage = lazy(() => import('../pages/NoticeManagePage'))
 const BroadcastCrawlPage = lazy(() => import('../pages/BroadcastCrawlPage'))
 const CrawlGroupManagePage = lazy(() => import('../pages/CrawlGroupManagePage'))
+const StagingManagePage = lazy(() => import('../pages/StagingManagePage'))
 
 export default function AdminRoutes() {
     return (
@@ -30,6 +31,7 @@ export default function AdminRoutes() {
                         <Route path="discovery" element={<DiscoveryPage />} />
                         <Route path="broadcast-crawl" element={<BroadcastCrawlPage />} />
                         <Route path="crawl-groups" element={<CrawlGroupManagePage />} />
+                        <Route path="staging" element={<StagingManagePage />} />
                         <Route path="*" element={<Navigate to="schedule" replace />} />
                     </Routes>
                 </Suspense>
