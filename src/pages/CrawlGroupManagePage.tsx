@@ -12,7 +12,7 @@ import {
 } from '../hooks'
 import { cn } from '../lib/cn'
 import type { ScheduleSourceItem, StreamerItem } from '../types'
-import { inputClass, panelClass, selectClass } from '../constants/styles'
+import { inputClass, panelClass } from '../constants/styles'
 import { ListEmpty, ListError, ListLoading } from '../components/ListState'
 import { getErrorMessage } from '../utils/error'
 
@@ -34,15 +34,17 @@ function buildTimetable(sources: ScheduleSourceItem[]): { timetable: TimetableMa
     const timetable: TimetableMap = new Map()
 
     for (const source of sources) {
-        for (const day of source.crawl_days) {
-            if (!timetable.has(source.crawl_hour)) {
-                timetable.set(source.crawl_hour, new Map())
+        for (const hour of source.crawl_hours ?? []) {
+            for (const day of source.crawl_days) {
+                if (!timetable.has(hour)) {
+                    timetable.set(hour, new Map())
+                }
+                const hourMap = timetable.get(hour)!
+                if (!hourMap.has(day)) {
+                    hourMap.set(day, [])
+                }
+                hourMap.get(day)!.push(source)
             }
-            const hourMap = timetable.get(source.crawl_hour)!
-            if (!hourMap.has(day)) {
-                hourMap.set(day, [])
-            }
-            hourMap.get(day)!.push(source)
         }
     }
 
@@ -76,12 +78,12 @@ function SourceManageTab() {
     const [selectedStreamer, setSelectedStreamer] = useState<StreamerItem | null>(null)
     const [newIdentifier, setNewIdentifier] = useState('')
     const [newDays, setNewDays] = useState<number[]>([1])
-    const [newHour, setNewHour] = useState('6')
+    const [newHours, setNewHours] = useState<number[]>([6])
 
     const [editingId, setEditingId] = useState<number | null>(null)
     const [editingIdentifier, setEditingIdentifier] = useState('')
     const [editingDays, setEditingDays] = useState<number[]>([1])
-    const [editingHour, setEditingHour] = useState('6')
+    const [editingHours, setEditingHours] = useState<number[]>([6])
 
     const filteredStreamers = useMemo(
         () =>
@@ -97,21 +99,21 @@ function SourceManageTab() {
         setSelectedStreamer(null)
         setNewIdentifier('')
         setNewDays([1])
-        setNewHour('6')
+            setNewHours([6])
     }
 
     function startEdit(source: ScheduleSourceItem): void {
         setEditingId(source.id)
         setEditingIdentifier(source.source_identifier)
         setEditingDays([...source.crawl_days].sort((a, b) => a - b))
-        setEditingHour(String(source.crawl_hour))
+            setEditingHours([...(source.crawl_hours ?? [])].sort((a, b) => a - b))
     }
 
     function cancelEdit(): void {
         setEditingId(null)
         setEditingIdentifier('')
         setEditingDays([1])
-        setEditingHour('6')
+            setEditingHours([6])
     }
 
     async function handleCreate(): Promise<void> {
@@ -134,7 +136,7 @@ function SourceManageTab() {
                 source_type: 'chzzk_community',
                 source_identifier: identifier,
                 crawl_days: [...newDays].sort((a, b) => a - b),
-                crawl_hour: Number(newHour),
+                crawl_hours: [...newHours].sort((a, b) => a - b),
             })
             addToast({ message: '소스를 추가했습니다.', variant: 'success' })
             resetAddForm()
@@ -160,7 +162,7 @@ function SourceManageTab() {
                 body: {
                     source_identifier: identifier,
                     crawl_days: [...editingDays].sort((a, b) => a - b),
-                    crawl_hour: Number(editingHour),
+                    crawl_hours: [...editingHours].sort((a, b) => a - b),
                 },
             })
             addToast({ message: '소스를 수정했습니다.', variant: 'success' })
@@ -293,13 +295,30 @@ function SourceManageTab() {
 
                         <div className="space-y-1.5">
                             <label className="text-xs font-medium text-[#adadb8]">시간</label>
-                            <select value={newHour} onChange={(event) => setNewHour(event.target.value)} className={cn(selectClass, 'w-28')}>
-                                {Array.from({ length: 24 }, (_, i) => (
-                                    <option key={i} value={i}>
-                                        {String(i).padStart(2, '0')}시
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="flex flex-wrap gap-1">
+                                {Array.from({ length: 24 }, (_, h) => {
+                                    const selected = newHours.includes(h)
+                                    return (
+                                        <button
+                                            key={h}
+                                            type="button"
+                                            onClick={() =>
+                                                setNewHours((prev) =>
+                                                    selected ? prev.filter((v) => v !== h) : [...prev, h].sort((a, b) => a - b),
+                                                )
+                                            }
+                                            className={cn(
+                                                'cursor-pointer rounded-md border px-1.5 py-1 text-[11px] font-semibold transition',
+                                                selected
+                                                    ? 'border-purple-500/40 bg-purple-500/15 text-purple-300'
+                                                    : 'border-[#3a3a44] bg-[#26262e] text-[#adadb8] hover:bg-[#32323d]',
+                                            )}
+                                        >
+                                            {String(h).padStart(2, '0')}
+                                        </button>
+                                    )
+                                })}
+                            </div>
                         </div>
                     </div>
 
@@ -397,7 +416,7 @@ function SourceManageTab() {
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-xs text-[#adadb8]">{dayLabel}</td>
-                                            <td className="px-4 py-3 text-xs text-[#adadb8]">{String(source.crawl_hour).padStart(2, '0')}시</td>
+                                            <td className="px-4 py-3 text-xs text-[#adadb8]">{(source.crawl_hours ?? []).map((h) => `${String(h).padStart(2, '0')}시`).join(', ')}</td>
                                             <td className="px-4 py-3">
                                                 <button
                                                     type="button"
@@ -457,18 +476,31 @@ function SourceManageTab() {
                                                             </div>
                                                             <div className="space-y-1.5">
                                                                 <label className="text-xs font-medium text-[#adadb8]">시간</label>
-                                                                <select
-                                                                    value={editingHour}
-                                                                    onChange={(event) => setEditingHour(event.target.value)}
-                                                                    className={cn(selectClass, 'w-28')}
-                                                                >
-                                                                    {Array.from({ length: 24 }, (_, i) => (
-                                                                        <option key={i} value={i}>
-                                                                            {String(i).padStart(2, '0')}시
-                                                                        </option>
-                                                                    ))}
-                                                                </select>
-                                                            </div>
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {Array.from({ length: 24 }, (_, h) => {
+                                                                        const selected = editingHours.includes(h)
+                                                                        return (
+                                                                            <button
+                                                                                key={h}
+                                                                                type="button"
+                                                                                onClick={() =>
+                                                                                    setEditingHours((prev) =>
+                                                                                        selected ? prev.filter((v) => v !== h) : [...prev, h].sort((a, b) => a - b),
+                                                                                    )
+                                                                                }
+                                                                                className={cn(
+                                                                                    'cursor-pointer rounded-md border px-1.5 py-1 text-[11px] font-semibold transition',
+                                                                                    selected
+                                                                                        ? 'border-purple-500/40 bg-purple-500/15 text-purple-300'
+                                                                                        : 'border-[#3a3a44] bg-[#26262e] text-[#adadb8] hover:bg-[#32323d]',
+                                                                                )}
+                                                                            >
+                                                                                {String(h).padStart(2, '0')}
+                                                                            </button>
+                                                                        )
+                                                                    })}
+                                                                </div>
+                                                             </div>
                                                         </div>
                                                         <div className="space-y-1.5">
                                                             <label className="text-xs font-medium text-[#adadb8]">요일</label>
