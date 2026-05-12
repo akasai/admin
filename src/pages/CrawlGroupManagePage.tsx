@@ -18,14 +18,27 @@ import { getErrorMessage } from '../utils/error'
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'] as const
 
+const SOURCE_TYPE_OPTIONS = [
+    { value: 'chzzk_community' as const, label: '치지직 커뮤니티', activeClass: 'border-green-500/40 bg-green-500/15 text-green-300' },
+    { value: 'schedule_api' as const, label: '일정표 API', activeClass: 'border-cyan-500/40 bg-cyan-500/15 text-cyan-300' },
+]
+
 function getSourceStyle(sourceType: string): string {
     if (sourceType === 'chzzk_community' || sourceType === 'chzzk') {
         return 'border-green-500/35 bg-green-500/10 text-green-300'
+    }
+    if (sourceType === 'schedule_api') {
+        return 'border-cyan-500/35 bg-cyan-500/10 text-cyan-300'
     }
     if (sourceType === 'fan_cafe') {
         return 'border-orange-500/35 bg-orange-500/10 text-orange-300'
     }
     return 'border-[#3a3a44] bg-[#26262e] text-[#adadb8]'
+}
+
+function getSourceLabel(sourceType: string): string {
+    const opt = SOURCE_TYPE_OPTIONS.find((o) => o.value === sourceType)
+    return opt?.label ?? sourceType
 }
 
 type TimetableMap = Map<number, Map<number, ScheduleSourceItem[]>>
@@ -74,6 +87,7 @@ function SourceManageTab() {
     const isPending = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending || toggleMutation.isPending
 
     const [isAdding, setIsAdding] = useState(false)
+    const [newSourceType, setNewSourceType] = useState<'chzzk_community' | 'schedule_api'>('chzzk_community')
     const [streamerSearch, setStreamerSearch] = useState('')
     const [selectedStreamer, setSelectedStreamer] = useState<StreamerItem | null>(null)
     const [newIdentifier, setNewIdentifier] = useState('')
@@ -95,11 +109,12 @@ function SourceManageTab() {
 
     function resetAddForm(): void {
         setIsAdding(false)
+        setNewSourceType('chzzk_community')
         setStreamerSearch('')
         setSelectedStreamer(null)
         setNewIdentifier('')
         setNewDays([1])
-            setNewHours([6])
+        setNewHours([6])
     }
 
     function startEdit(source: ScheduleSourceItem): void {
@@ -133,7 +148,7 @@ function SourceManageTab() {
         try {
             await createMutation.mutateAsync({
                 streamer_id: selectedStreamer.id,
-                source_type: 'chzzk_community',
+                source_type: newSourceType,
                 source_identifier: identifier,
                 crawl_days: [...newDays].sort((a, b) => a - b),
                 crawl_hours: [...newHours].sort((a, b) => a - b),
@@ -252,7 +267,9 @@ function SourceManageTab() {
                                                     type="button"
                                                     onMouseDown={() => {
                                                         setSelectedStreamer(streamer)
-                                                        setNewIdentifier(streamer.channelId ?? '')
+                                                        if (newSourceType === 'chzzk_community') {
+                                                            setNewIdentifier(streamer.channelId ?? '')
+                                                        }
                                                         setStreamerSearch('')
                                                     }}
                                                     className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left transition hover:bg-[#26262e]"
@@ -275,20 +292,37 @@ function SourceManageTab() {
 
                         <div className="space-y-1.5">
                             <label className="text-xs font-medium text-[#adadb8]">소스타입</label>
-                            <div className="flex h-9 items-center">
-                                <span className="rounded-full border border-blue-500/35 bg-blue-500/15 px-2.5 py-1 text-xs font-semibold text-blue-300">
-                                    chzzk_community
-                                </span>
+                            <div className="flex items-center gap-1.5">
+                                {SOURCE_TYPE_OPTIONS.map((opt) => (
+                                    <button
+                                        key={opt.value}
+                                        type="button"
+                                        onClick={() => {
+                                            setNewSourceType(opt.value)
+                                            setNewIdentifier('')
+                                        }}
+                                        className={cn(
+                                            'cursor-pointer rounded-full border px-2.5 py-1 text-xs font-semibold transition',
+                                            newSourceType === opt.value
+                                                ? opt.activeClass
+                                                : 'border-[#3a3a44] bg-[#26262e] text-[#adadb8] hover:bg-[#32323d]',
+                                        )}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
                             </div>
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-[#adadb8]">식별자 (채널 ID)</label>
+                            <label className="text-xs font-medium text-[#adadb8]">
+                                {newSourceType === 'schedule_api' ? '식별자 (API URL)' : '식별자 (채널 ID)'}
+                            </label>
                             <input
                                 type="text"
                                 value={newIdentifier}
                                 onChange={(event) => setNewIdentifier(event.target.value)}
-                                placeholder="치지직 채널 ID"
+                                placeholder={newSourceType === 'schedule_api' ? 'https://example.com/api/schedules' : '치지직 채널 ID'}
                                 className={inputClass}
                             />
                         </div>
@@ -407,7 +441,7 @@ function SourceManageTab() {
                                                         getSourceStyle(source.source_type),
                                                     )}
                                                 >
-                                                    {source.source_type}
+                                                    {getSourceLabel(source.source_type)}
                                                 </span>
                                             </td>
                                             <td className="max-w-[180px] px-4 py-3">
