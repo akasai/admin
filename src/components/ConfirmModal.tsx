@@ -1,4 +1,5 @@
 import { ModalOverlay } from './ModalOverlay'
+import { Button } from '../../../public/packages/ui/src'
 
 interface ConfirmModalProps {
     title: string
@@ -30,22 +31,24 @@ export function ConfirmModal({
                 </p>
             </div>
             <div className="flex gap-2 border-t border-[#3a3a44] px-6 py-4">
-                <button
+                <Button
                     type="button"
+                    variant="outline"
                     onClick={onClose}
                     disabled={pending}
-                    className="cursor-pointer flex-1 rounded-xl border border-[#3a3a44] py-2.5 text-sm font-medium text-[#adadb8] transition hover:bg-[#26262e] disabled:opacity-50"
+                    className="h-auto flex-1 rounded-xl border-[#3a3a44] py-2.5 text-sm font-medium text-[#adadb8] hover:bg-[#26262e] hover:text-[#adadb8]"
                 >
                     취소
-                </button>
-                <button
+                </Button>
+                <Button
                     type="button"
+                    variant="destructive"
                     onClick={onConfirm}
                     disabled={pending}
-                    className="cursor-pointer flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-500 disabled:opacity-50"
+                    className="h-auto flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-500"
                 >
                     {pending ? pendingLabel : confirmLabel}
-                </button>
+                </Button>
             </div>
         </ModalOverlay>
     )

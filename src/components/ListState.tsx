@@ -1,4 +1,5 @@
 import { cn } from '../lib/cn'
+import { Button } from '../../../public/packages/ui/src'
 
 interface ListLoadingProps {
     className?: string
@@ -35,13 +36,15 @@ export function ListError({ message = '데이터를 불러오는 중 오류가 �
         <div className={cn('flex flex-col items-center gap-3', className)}>
             <p className="text-sm text-red-400">{message}</p>
             {onRetry !== undefined && (
-                <button
+                <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={onRetry}
-                    className="cursor-pointer rounded-lg border border-[#3a3a44] px-3 py-1.5 text-xs font-semibold text-[#adadb8] transition hover:bg-[#26262e]"
+                    className="border-[#3a3a44] text-[#adadb8] hover:bg-[#26262e] hover:text-[#adadb8]"
                 >
                     다시 시도
-                </button>
+                </Button>
             )}
         </div>
     )

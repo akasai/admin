@@ -5,6 +5,7 @@ import type { StagingItem, StreamerItem, UpdateStagingRequest } from '../../type
 import { cn } from '../../lib/cn'
 import { inputClass } from '../../constants/styles'
 import { ModalOverlay } from '../ModalOverlay'
+import { Badge, Button } from '../../../../public/packages/ui/src'
 
 interface EditParticipant {
     id: number
@@ -16,11 +17,12 @@ interface StagingEditModalProps {
     item: StagingItem
     streamers: StreamerItem[]
     pending: boolean
+    readOnly?: boolean
     onClose: () => void
     onSubmit: (body: UpdateStagingRequest) => Promise<void>
 }
 
-export function StagingEditModal({ item, streamers, pending, onClose, onSubmit }: StagingEditModalProps) {
+export function StagingEditModal({ item, streamers, pending, readOnly = false, onClose, onSubmit }: StagingEditModalProps) {
     const [title, setTitle] = useState(item.title ?? '')
     const [category, setCategory] = useState(item.category ?? '')
     const [startDate, setStartDate] = useState(item.event_date_kst ?? '')
@@ -108,18 +110,22 @@ export function StagingEditModal({ item, streamers, pending, onClose, onSubmit }
         <ModalOverlay size="lg" disabled={pending} onClose={onClose}>
             <div className="flex items-start justify-between border-b border-[#3a3a44] px-6 py-4">
                 <div>
-                    <h2 className="text-base font-bold text-[#efeff1]">스테이징 수정</h2>
-                    <p className="mt-1 text-xs text-[#adadb8]">스테이징 항목 정보를 수정합니다.</p>
+                    <h2 className="text-base font-bold text-[#efeff1]">{readOnly ? '스테이징 상세' : '스테이징 수정'}</h2>
+                    <p className="mt-1 text-xs text-[#adadb8]">
+                        {readOnly ? '스테이징 항목 정보를 확인합니다.' : '스테이징 항목 정보를 수정합니다.'}
+                    </p>
                 </div>
-                <button
+                <Button
                     type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={onClose}
                     disabled={pending}
-                    className="cursor-pointer rounded-lg border border-[#3a3a44] p-1.5 text-[#adadb8] transition hover:bg-[#26262e] disabled:opacity-50"
+                    className="rounded-lg border border-[#3a3a44] text-[#adadb8] hover:bg-[#26262e] hover:text-[#adadb8]"
                     aria-label="닫기"
                 >
                     <X className="h-4 w-4" />
-                </button>
+                </Button>
             </div>
 
             <div className="max-h-[68vh] space-y-4 overflow-auto px-6 py-4">
@@ -131,7 +137,8 @@ export function StagingEditModal({ item, streamers, pending, onClose, onSubmit }
                         onChange={(e) => setTitle(e.target.value)}
                         className={inputClass}
                         placeholder="스테이징 제목"
-                        autoFocus
+                        autoFocus={!readOnly}
+                        readOnly={readOnly}
                     />
                 </div>
 
@@ -143,6 +150,7 @@ export function StagingEditModal({ item, streamers, pending, onClose, onSubmit }
                         onChange={(e) => setCategory(e.target.value)}
                         className={inputClass}
                         placeholder="카테고리"
+                        readOnly={readOnly}
                     />
                 </div>
 
@@ -154,6 +162,7 @@ export function StagingEditModal({ item, streamers, pending, onClose, onSubmit }
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
                             className={inputClass}
+                            disabled={readOnly}
                         />
                     </div>
                     <div className="space-y-1">
@@ -163,6 +172,7 @@ export function StagingEditModal({ item, streamers, pending, onClose, onSubmit }
                             value={startTime}
                             onChange={(e) => setStartTime(e.target.value)}
                             className={inputClass}
+                            disabled={readOnly}
                         />
                     </div>
                 </div>
@@ -199,35 +209,55 @@ export function StagingEditModal({ item, streamers, pending, onClose, onSubmit }
                                     <span className="truncate text-sm font-medium text-[#efeff1]">{participant.name}</span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
-                                    <button
-                                        type="button"
-                                        onClick={() => toggleHost(participant.id)}
-                                        className={cn(
-                                            'cursor-pointer rounded-lg border px-2 py-1 text-xs font-semibold transition',
-                                            participant.isHost
-                                                ? 'border-emerald-500/40 bg-emerald-500/20 text-emerald-300'
-                                                : 'border-[#3a3a44] bg-[#2f2f39] text-[#adadb8] hover:bg-[#3a3a46]',
-                                        )}
-                                    >
-                                        주최
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => removeParticipant(participant.id)}
-                                        className="cursor-pointer rounded-lg border border-red-500/30 bg-red-500/5 px-2 py-1 text-xs font-semibold text-red-300 transition hover:bg-red-500/15"
-                                        aria-label={`${participant.name} 삭제`}
-                                    >
-                                        삭제
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                                     {readOnly ? (
+                                         <Badge
+                                             size="md"
+                                             className={cn(
+                                                 'rounded-lg px-2 py-1 text-xs font-semibold',
+                                                 participant.isHost
+                                                     ? 'border-emerald-500/40 bg-emerald-500/20 text-emerald-300'
+                                                     : 'border-[#3a3a44] bg-[#2f2f39] text-[#adadb8]',
+                                             )}
+                                         >
+                                             {participant.isHost ? '주최' : '참여자'}
+                                         </Badge>
+                                     ) : (
+                                         <>
+                                             <Button
+                                                 type="button"
+                                                 variant="outline"
+                                                 size="sm"
+                                                 onClick={() => toggleHost(participant.id)}
+                                                 className={cn(
+                                                     'rounded-lg text-xs font-semibold',
+                                                     participant.isHost
+                                                         ? 'border-emerald-500/40 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-300'
+                                                         : 'border-[#3a3a44] bg-[#2f2f39] text-[#adadb8] hover:bg-[#3a3a46] hover:text-[#adadb8]',
+                                                 )}
+                                             >
+                                                 주최
+                                             </Button>
+                                             <Button
+                                                 type="button"
+                                                 variant="destructive"
+                                                 size="sm"
+                                                 onClick={() => removeParticipant(participant.id)}
+                                                 className="rounded-lg border-red-500/30 bg-red-500/5 text-xs font-semibold text-red-300 hover:bg-red-500/15 hover:text-red-300"
+                                                 aria-label={`${participant.name} 삭제`}
+                                             >
+                                                 삭제
+                                             </Button>
+                                         </>
+                                     )}
+                                 </div>
+                             </div>
+                         ))}
                         {participants.length === 0 && (
                             <p className="py-3 text-center text-xs text-[#848494]">등록된 참여자가 없습니다.</p>
                         )}
                     </div>
 
-                    <div className="relative" ref={dropdownRef}>
+                    {!readOnly && <div className="relative" ref={dropdownRef}>
                         <div className="relative">
                             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#7e7e8c]" />
                             <input
@@ -273,31 +303,33 @@ export function StagingEditModal({ item, streamers, pending, onClose, onSubmit }
                                 </div>
                             </div>
                         )}
-                    </div>
+                    </div>}
                 </div>
 
                 {error !== null && <p className="text-xs text-red-400">{error}</p>}
             </div>
 
             <div className="flex gap-2 border-t border-[#3a3a44] px-6 py-4">
-                <button
+                <Button
                     type="button"
+                    variant="outline"
                     onClick={onClose}
                     disabled={pending}
-                    className="cursor-pointer flex-1 rounded-xl border border-[#3a3a44] py-2.5 text-sm font-medium text-[#adadb8] transition hover:bg-[#26262e] disabled:opacity-50"
+                    className="h-auto flex-1 rounded-xl border-[#3a3a44] py-2.5 text-sm font-medium text-[#adadb8] hover:bg-[#26262e] hover:text-[#adadb8]"
                 >
-                    취소
-                </button>
-                <button
+                    {readOnly ? '닫기' : '취소'}
+                </Button>
+                {!readOnly && <Button
                     type="button"
+                    variant="primary"
                     onClick={() => {
                         void handleSubmit()
                     }}
                     disabled={pending}
-                    className="cursor-pointer flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
+                    className="h-auto flex-1 rounded-xl py-2.5 text-sm font-semibold text-white"
                 >
                     {pending ? '저장 중...' : '저장'}
-                </button>
+                </Button>}
             </div>
         </ModalOverlay>
     )
