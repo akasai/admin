@@ -70,3 +70,13 @@ export type {
 
 export type { NoticeItem, ListNoticesResponse, CreateNoticeRequest, UpdateNoticeRequest } from './notice'
 export type { StagingItem, StagingItemRaw, StagingParticipant, StagingDetail, StagingDetailRaw, UpdateStagingRequest } from './staging'
+
+export type {
+  PinnedEventItem,
+  PinnedEventDetail,
+  PinnedBroadcastItem,
+  PinnedBroadcastStreamer,
+  CreatePinnedEventRequest,
+  CreatePinnedEventEntry,
+  UpdatePinnedEventRequest,
+} from './pinnedEvent'

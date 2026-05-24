@@ -41,3 +41,4 @@ export { useStreamers, useRegisterStreamer, useRefreshStreamer, useDeleteStreame
 export { useStreamerAliases, useCreateStreamerAlias, useDeleteStreamerAlias } from './useStreamerAliases'
 export { useNotices, useCreateNotice, useUpdateNotice, useDeleteNotice } from './useNotices'
 export { useStaging, useStagingDetail, useUpdateStaging, usePromoteStaging, useDeleteStaging } from './useStaging'
+export { usePinnedEvents, usePinnedEventDetail, useCreatePinnedEvent, useUpdatePinnedEvent, useDeletePinnedEvent } from './usePinnedEvents'
