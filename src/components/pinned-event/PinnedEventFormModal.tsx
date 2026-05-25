@@ -251,7 +251,7 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
                 <p className="text-xs text-[#adadb8]">날짜별로 제목, 시간, 참석자를 개별 설정할 수 있습니다.</p>
 
                 {entries.map((entry, index) => (
-                    <div key={entry.date} className="rounded-xl border border-[#3a3a44] bg-[#20202a]">
+                    <div key={index} className="rounded-xl border border-[#3a3a44] bg-[#20202a]">
                         <button
                             type="button"
                             onClick={() => toggleEntryExpanded(index)}
@@ -271,6 +271,18 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
                             <div className="space-y-3 border-t border-[#3a3a44] px-4 py-3">
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0 flex-1 space-y-3">
+                                        <div className="space-y-1">
+                                            <label className="flex items-center gap-1.5 text-xs font-medium text-[#adadb8]">
+                                                <CalendarPlus className="h-3.5 w-3.5" /> 날짜
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={entry.date}
+                                                onChange={(event) => updateEntry(index, { date: event.target.value })}
+                                                className={inputClass}
+                                            />
+                                        </div>
+
                                         <div className="space-y-1">
                                             <label className="text-xs font-medium text-[#adadb8]">제목</label>
                                             <input
