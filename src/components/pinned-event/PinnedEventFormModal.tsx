@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarPlus, ChevronDown, ChevronRight, Clock, Plus, Type, X } from 'lucide-react'
-import { useAdminToast, useCreatePinnedEvent, useUpdatePinnedEvent, usePinnedEventDetail, useStreamers } from '../../hooks'
+import { CalendarPlus, ChevronDown, ChevronRight, Clock, Gift, Plus, Tag, Type, X, Zap } from 'lucide-react'
+import { useAdminToast, useCategories, useCreatePinnedEvent, useUpdatePinnedEvent, usePinnedEventDetail, useStreamers } from '../../hooks'
 import type { CreatePinnedEventEntry } from '../../types'
 import type { ParticipantDraft } from '../schedule/types'
+import { parseTags } from '../schedule/utils'
 import { getErrorMessage } from '../../utils/error'
 import { cn } from '../../lib/cn'
 import { inputClass } from '../../constants/styles'
 import { ModalOverlay } from '../ModalOverlay'
+import { CategorySelector } from '../schedule/CategorySelector'
 import { ParticipantManager } from '../schedule/ParticipantManager'
 
 interface PinnedEventFormModalProps {
@@ -18,6 +20,10 @@ interface EntryDraft {
     date: string
     title: string
     startTime: string
+    categoryId: string
+    tagsInput: string
+    isDrops: boolean
+    isChzzkSupport: boolean
     participants: ParticipantDraft[]
     expanded: boolean
 }
@@ -28,6 +34,7 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
     const createMutation = useCreatePinnedEvent()
     const updateMutation = useUpdatePinnedEvent()
     const { data: detail } = usePinnedEventDetail(eventId ?? 0)
+    const { data: categories = [] } = useCategories()
     const { data: streamersData } = useStreamers({ size: 1000 })
     const streamers = streamersData?.items ?? []
 
@@ -39,6 +46,10 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
     const [dateInput, setDateInput] = useState('')
     const [defaultTitle, setDefaultTitle] = useState('')
     const [defaultStartTime, setDefaultStartTime] = useState('')
+    const [defaultCategoryId, setDefaultCategoryId] = useState('')
+    const [defaultTagsInput, setDefaultTagsInput] = useState('')
+    const [defaultIsDrops, setDefaultIsDrops] = useState(false)
+    const [defaultIsChzzkSupport, setDefaultIsChzzkSupport] = useState(false)
     const [defaultParticipants, setDefaultParticipants] = useState<ParticipantDraft[]>([])
     const [entries, setEntries] = useState<EntryDraft[]>([])
     const [error, setError] = useState<string | null>(null)
@@ -60,6 +71,10 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
                 date: broadcast.date,
                 title: broadcast.title,
                 startTime: broadcast.startTime ?? '',
+                categoryId: broadcast.categoryId !== null ? String(broadcast.categoryId) : '',
+                tagsInput: broadcast.tags.join(', '),
+                isDrops: broadcast.isDrops,
+                isChzzkSupport: broadcast.isChzzkSupport,
                 participants: (broadcast.streamers ?? []).map((streamer) => ({
                     name: streamer.name,
                     streamerId: streamer.streamerId,
@@ -102,6 +117,10 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
                 date: dateInput,
                 title: editName.trim(),
                 startTime: '',
+                categoryId: '',
+                tagsInput: '',
+                isDrops: false,
+                isChzzkSupport: false,
                 participants: [],
                 expanded: true,
             },
@@ -135,6 +154,10 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
                 date,
                 title: defaultTitle,
                 startTime: defaultStartTime,
+                categoryId: defaultCategoryId,
+                tagsInput: defaultTagsInput,
+                isDrops: defaultIsDrops,
+                isChzzkSupport: defaultIsChzzkSupport,
                 participants: defaultParticipants.map((p) => ({ ...p })),
                 expanded: true,
             })))
@@ -165,6 +188,10 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
             date: entry.date,
             title: entry.title.trim().length > 0 ? entry.title.trim() : name.trim(),
             startTime: entry.startTime.length > 0 ? entry.startTime : null,
+            categoryId: entry.categoryId.length > 0 ? Number(entry.categoryId) : undefined,
+            tags: parseTags(entry.tagsInput),
+            isDrops: entry.isDrops,
+            isChzzkSupport: entry.isChzzkSupport,
             participants: entry.participants.map((p) => ({
                     streamerId: p.streamerId,
                     name: p.name,
@@ -197,6 +224,10 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
             date: entry.date,
             title: entry.title.trim().length > 0 ? entry.title.trim() : editName.trim(),
             startTime: entry.startTime.length > 0 ? entry.startTime : null,
+            categoryId: entry.categoryId.length > 0 ? Number(entry.categoryId) : undefined,
+            tags: parseTags(entry.tagsInput),
+            isDrops: entry.isDrops,
+            isChzzkSupport: entry.isChzzkSupport,
             participants: entry.participants.map((p) => ({
                 streamerId: p.streamerId,
                 name: p.name,
@@ -260,6 +291,57 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
                                                 className={inputClass}
                                             />
                                         </div>
+
+                                        <CategorySelector
+                                            categories={categories}
+                                            selectedId={entry.categoryId}
+                                            onChange={(categoryId) => updateEntry(index, { categoryId })}
+                                        />
+
+                                        <div className="space-y-1">
+                                            <label className="flex items-center gap-1.5 text-xs font-medium text-[#adadb8]">
+                                                <Tag className="h-3.5 w-3.5" /> 태그
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={entry.tagsInput}
+                                                onChange={(event) => updateEntry(index, { tagsInput: event.target.value })}
+                                                className={inputClass}
+                                                placeholder="예: 인챈트, 허니즈"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="flex items-center gap-1.5 text-xs font-medium text-[#adadb8]">
+                                                <Tag className="h-3.5 w-3.5" /> 타입 / 속성
+                                            </label>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => updateEntry(index, { isChzzkSupport: !entry.isChzzkSupport })}
+                                                    className={cn(
+                                                        'inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition',
+                                                        entry.isChzzkSupport
+                                                            ? 'border-orange-500/40 bg-orange-500/15 text-orange-300'
+                                                            : 'border-[#3a3a44] bg-[#26262e] text-[#adadb8] hover:bg-[#32323d]',
+                                                    )}
+                                                >
+                                                    <Zap className="h-3 w-3" /> 제작지원
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => updateEntry(index, { isDrops: !entry.isDrops })}
+                                                    className={cn(
+                                                        'inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition',
+                                                        entry.isDrops
+                                                            ? 'border-blue-500/40 bg-blue-500/15 text-blue-300'
+                                                            : 'border-[#3a3a44] bg-[#26262e] text-[#adadb8] hover:bg-[#32323d]',
+                                                    )}
+                                                >
+                                                    <Gift className="h-3 w-3" /> 드롭스
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                     <button
                                         type="button"
@@ -286,10 +368,101 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
     if (isEditMode) {
         return (
             <ModalOverlay size="lg" disabled={pending} onClose={onClose}>
+                <div className="flex max-h-[calc(100vh-2rem)] flex-col">
+                    <div className="flex items-start justify-between border-b border-[#3a3a44] px-6 py-4">
+                        <div>
+                            <h2 className="text-base font-bold text-[#efeff1]">이벤트 수정</h2>
+                            <p className="mt-1 text-xs text-[#adadb8]">고정 일정 이벤트 정보를 수정합니다.</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            disabled={pending}
+                            className="cursor-pointer rounded-lg border border-[#3a3a44] p-1.5 text-[#adadb8] transition hover:bg-[#26262e] disabled:opacity-50"
+                            aria-label="닫기"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    </div>
+
+                    <div className="min-h-0 space-y-4 overflow-y-auto px-6 py-4">
+                        <div className="space-y-1">
+                            <label className="flex items-center gap-1.5 text-xs font-medium text-[#adadb8]">
+                                <Type className="h-3.5 w-3.5" /> 이벤트 이름 <span className="text-red-400">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={editName}
+                                onChange={(event) => setEditName(event.target.value)}
+                                className={inputClass}
+                                placeholder="이벤트 이름"
+                                autoFocus
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="flex items-center gap-1.5 text-xs font-medium text-[#adadb8]">
+                                <CalendarPlus className="h-3.5 w-3.5" /> 날짜 추가
+                            </label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="date"
+                                    value={dateInput}
+                                    onChange={(event) => setDateInput(event.target.value)}
+                                    className={cn(inputClass, 'flex-1')}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={addEditDate}
+                                    className="cursor-pointer inline-flex items-center gap-1.5 rounded-xl border border-[#3a3a44] bg-[#26262e] px-3 py-2 text-xs font-semibold text-[#efeff1] transition hover:bg-[#2e2e39]"
+                                >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    날짜 추가
+                                </button>
+                            </div>
+                        </div>
+
+                        {entries.length > 0 ? renderEntriesEditor() : (
+                            <div className="flex items-center justify-center rounded-xl border border-dashed border-[#3a3a44] py-6 text-xs text-[#848494]">
+                                날짜를 추가해 세부 일정을 수정해 주세요
+                            </div>
+                        )}
+
+                        {error !== null && <p className="text-xs text-red-400">{error}</p>}
+                    </div>
+
+                    <div className="flex gap-2 border-t border-[#3a3a44] px-6 py-4">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            disabled={pending}
+                            className="cursor-pointer flex-1 rounded-xl border border-[#3a3a44] py-2.5 text-sm font-medium text-[#adadb8] transition hover:bg-[#26262e] disabled:opacity-50"
+                        >
+                            취소
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => { void handleUpdate() }}
+                            disabled={pending}
+                            className="cursor-pointer flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
+                        >
+                            {pending ? '저장 중...' : '저장'}
+                        </button>
+                    </div>
+                </div>
+            </ModalOverlay>
+        )
+    }
+
+    const stepLabels = ['이름', '날짜', '프리필', '커스터마이즈']
+
+    return (
+        <ModalOverlay size="2xl" disabled={pending} onClose={onClose}>
+            <div className="flex max-h-[calc(100vh-2rem)] flex-col">
                 <div className="flex items-start justify-between border-b border-[#3a3a44] px-6 py-4">
                     <div>
-                        <h2 className="text-base font-bold text-[#efeff1]">이벤트 수정</h2>
-                        <p className="mt-1 text-xs text-[#adadb8]">고정 일정 이벤트 정보를 수정합니다.</p>
+                        <h2 className="text-base font-bold text-[#efeff1]">이벤트 추가</h2>
+                        <p className="mt-1 text-xs text-[#adadb8]">고정 일정 이벤트를 생성합니다.</p>
                     </div>
                     <button
                         type="button"
@@ -302,120 +475,32 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
                     </button>
                 </div>
 
-                <div className="space-y-4 px-6 py-4">
-                    <div className="space-y-1">
-                        <label className="flex items-center gap-1.5 text-xs font-medium text-[#adadb8]">
-                            <Type className="h-3.5 w-3.5" /> 이벤트 이름 <span className="text-red-400">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            value={editName}
-                            onChange={(event) => setEditName(event.target.value)}
-                            className={inputClass}
-                            placeholder="이벤트 이름"
-                            autoFocus
-                        />
-                    </div>
-
-                    <div className="space-y-1">
-                        <label className="flex items-center gap-1.5 text-xs font-medium text-[#adadb8]">
-                            <CalendarPlus className="h-3.5 w-3.5" /> 날짜 추가
-                        </label>
-                        <div className="flex gap-2">
-                            <input
-                                type="date"
-                                value={dateInput}
-                                onChange={(event) => setDateInput(event.target.value)}
-                                className={cn(inputClass, 'flex-1')}
-                            />
-                            <button
-                                type="button"
-                                onClick={addEditDate}
-                                className="cursor-pointer inline-flex items-center gap-1.5 rounded-xl border border-[#3a3a44] bg-[#26262e] px-3 py-2 text-xs font-semibold text-[#efeff1] transition hover:bg-[#2e2e39]"
-                            >
-                                <Plus className="h-3.5 w-3.5" />
-                                날짜 추가
-                            </button>
-                        </div>
-                    </div>
-
-                    {entries.length > 0 ? renderEntriesEditor() : (
-                        <div className="flex items-center justify-center rounded-xl border border-dashed border-[#3a3a44] py-6 text-xs text-[#848494]">
-                            날짜를 추가해 세부 일정을 수정해 주세요
-                        </div>
-                    )}
-
-                    {error !== null && <p className="text-xs text-red-400">{error}</p>}
+                <div className="flex items-center gap-2 border-b border-[#3a3a44] px-6 py-3">
+                    {stepLabels.map((label, index) => {
+                        const stepNum = index + 1
+                        const isCurrent = step === stepNum
+                        const isPast = step > stepNum
+                        return (
+                            <div key={label} className="flex items-center gap-2">
+                                {index > 0 && <ChevronRight className="h-3 w-3 text-[#4a4a58]" />}
+                                <span
+                                    className={cn(
+                                        'rounded-full px-2.5 py-1 text-xs font-semibold transition',
+                                        isCurrent
+                                            ? 'bg-blue-600 text-white'
+                                            : isPast
+                                              ? 'bg-emerald-500/15 text-emerald-300'
+                                              : 'bg-[#26262e] text-[#848494]',
+                                    )}
+                                >
+                                    {stepNum}. {label}
+                                </span>
+                            </div>
+                        )
+                    })}
                 </div>
 
-                <div className="flex gap-2 border-t border-[#3a3a44] px-6 py-4">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        disabled={pending}
-                        className="cursor-pointer flex-1 rounded-xl border border-[#3a3a44] py-2.5 text-sm font-medium text-[#adadb8] transition hover:bg-[#26262e] disabled:opacity-50"
-                    >
-                        취소
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => { void handleUpdate() }}
-                        disabled={pending}
-                        className="cursor-pointer flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
-                    >
-                        {pending ? '저장 중...' : '저장'}
-                    </button>
-                </div>
-            </ModalOverlay>
-        )
-    }
-
-    const stepLabels = ['이름', '날짜', '프리필', '커스터마이즈']
-
-    return (
-        <ModalOverlay size="2xl" disabled={pending} onClose={onClose}>
-            <div className="flex items-start justify-between border-b border-[#3a3a44] px-6 py-4">
-                <div>
-                    <h2 className="text-base font-bold text-[#efeff1]">이벤트 추가</h2>
-                    <p className="mt-1 text-xs text-[#adadb8]">고정 일정 이벤트를 생성합니다.</p>
-                </div>
-                <button
-                    type="button"
-                    onClick={onClose}
-                    disabled={pending}
-                    className="cursor-pointer rounded-lg border border-[#3a3a44] p-1.5 text-[#adadb8] transition hover:bg-[#26262e] disabled:opacity-50"
-                    aria-label="닫기"
-                >
-                    <X className="h-4 w-4" />
-                </button>
-            </div>
-
-            <div className="flex items-center gap-2 border-b border-[#3a3a44] px-6 py-3">
-                {stepLabels.map((label, index) => {
-                    const stepNum = index + 1
-                    const isCurrent = step === stepNum
-                    const isPast = step > stepNum
-                    return (
-                        <div key={label} className="flex items-center gap-2">
-                            {index > 0 && <ChevronRight className="h-3 w-3 text-[#4a4a58]" />}
-                            <span
-                                className={cn(
-                                    'rounded-full px-2.5 py-1 text-xs font-semibold transition',
-                                    isCurrent
-                                        ? 'bg-blue-600 text-white'
-                                        : isPast
-                                          ? 'bg-emerald-500/15 text-emerald-300'
-                                          : 'bg-[#26262e] text-[#848494]',
-                                )}
-                            >
-                                {stepNum}. {label}
-                            </span>
-                        </div>
-                    )
-                })}
-            </div>
-
-            <div className="max-h-[60vh] overflow-auto px-6 py-4">
+                <div className="min-h-0 overflow-y-auto px-6 py-4">
                 {/* Step 1: Event name */}
                 {step === 1 && (
                     <div className="space-y-3">
@@ -524,6 +609,57 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
                             />
                         </div>
 
+                        <CategorySelector
+                            categories={categories}
+                            selectedId={defaultCategoryId}
+                            onChange={setDefaultCategoryId}
+                        />
+
+                        <div className="space-y-1">
+                            <label className="flex items-center gap-1.5 text-xs font-medium text-[#adadb8]">
+                                <Tag className="h-3.5 w-3.5" /> 기본 태그
+                            </label>
+                            <input
+                                type="text"
+                                value={defaultTagsInput}
+                                onChange={(event) => setDefaultTagsInput(event.target.value)}
+                                className={inputClass}
+                                placeholder="예: 인챈트, 허니즈"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="flex items-center gap-1.5 text-xs font-medium text-[#adadb8]">
+                                <Tag className="h-3.5 w-3.5" /> 기본 타입 / 속성
+                            </label>
+                            <div className="flex flex-wrap gap-1.5">
+                                <button
+                                    type="button"
+                                    onClick={() => setDefaultIsChzzkSupport((prev) => !prev)}
+                                    className={cn(
+                                        'inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition',
+                                        defaultIsChzzkSupport
+                                            ? 'border-orange-500/40 bg-orange-500/15 text-orange-300'
+                                            : 'border-[#3a3a44] bg-[#26262e] text-[#adadb8] hover:bg-[#32323d]',
+                                    )}
+                                >
+                                    <Zap className="h-3 w-3" /> 제작지원
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setDefaultIsDrops((prev) => !prev)}
+                                    className={cn(
+                                        'inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition',
+                                        defaultIsDrops
+                                            ? 'border-blue-500/40 bg-blue-500/15 text-blue-300'
+                                            : 'border-[#3a3a44] bg-[#26262e] text-[#adadb8] hover:bg-[#32323d]',
+                                    )}
+                                >
+                                    <Gift className="h-3 w-3" /> 드롭스
+                                </button>
+                            </div>
+                        </div>
+
                         <div className="border-t border-[#3a3a44] pt-3">
                             <ParticipantManager
                                 participants={defaultParticipants}
@@ -546,45 +682,46 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
                 )}
 
                 {error !== null && <p className="mt-3 text-xs text-red-400">{error}</p>}
-            </div>
+                </div>
 
-            <div className="flex gap-2 border-t border-[#3a3a44] px-6 py-4">
-                {step > 1 && (
+                <div className="flex gap-2 border-t border-[#3a3a44] px-6 py-4">
+                    {step > 1 && (
+                        <button
+                            type="button"
+                            onClick={() => goToStep(step - 1)}
+                            disabled={pending}
+                            className="cursor-pointer rounded-xl border border-[#3a3a44] px-4 py-2.5 text-sm font-medium text-[#adadb8] transition hover:bg-[#26262e] disabled:opacity-50"
+                        >
+                            이전
+                        </button>
+                    )}
                     <button
                         type="button"
-                        onClick={() => goToStep(step - 1)}
+                        onClick={onClose}
                         disabled={pending}
-                        className="cursor-pointer rounded-xl border border-[#3a3a44] px-4 py-2.5 text-sm font-medium text-[#adadb8] transition hover:bg-[#26262e] disabled:opacity-50"
+                        className="cursor-pointer flex-1 rounded-xl border border-[#3a3a44] py-2.5 text-sm font-medium text-[#adadb8] transition hover:bg-[#26262e] disabled:opacity-50"
                     >
-                        이전
+                        취소
                     </button>
-                )}
-                <button
-                    type="button"
-                    onClick={onClose}
-                    disabled={pending}
-                    className="cursor-pointer flex-1 rounded-xl border border-[#3a3a44] py-2.5 text-sm font-medium text-[#adadb8] transition hover:bg-[#26262e] disabled:opacity-50"
-                >
-                    취소
-                </button>
-                {step < 4 ? (
-                    <button
-                        type="button"
-                        onClick={() => goToStep(step + 1)}
-                        className="cursor-pointer flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500"
-                    >
-                        다음
-                    </button>
-                ) : (
-                    <button
-                        type="button"
-                        onClick={() => { void handleCreate() }}
-                        disabled={pending}
-                        className="cursor-pointer flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
-                    >
-                        {pending ? '저장 중...' : '저장'}
-                    </button>
-                )}
+                    {step < 4 ? (
+                        <button
+                            type="button"
+                            onClick={() => goToStep(step + 1)}
+                            className="cursor-pointer flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500"
+                        >
+                            다음
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => { void handleCreate() }}
+                            disabled={pending}
+                            className="cursor-pointer flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
+                        >
+                            {pending ? '저장 중...' : '저장'}
+                        </button>
+                    )}
+                </div>
             </div>
         </ModalOverlay>
     )

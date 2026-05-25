@@ -18,6 +18,10 @@ export interface PinnedBroadcastItem {
   title: string
   startTime: string | null
   date: string
+  categoryId: number | null
+  tags: string[]
+  isDrops: boolean
+  isChzzkSupport: boolean
   streamers: PinnedBroadcastStreamer[]
 }
 
@@ -33,6 +37,10 @@ export interface CreatePinnedEventEntry {
   date: string
   title: string
   startTime?: string | null
+  categoryId?: number | null
+  tags?: string[]
+  isDrops?: boolean
+  isChzzkSupport?: boolean
   participants?: Array<{
     streamerId?: number
     name: string
