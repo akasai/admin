@@ -5,7 +5,8 @@ import type { StagingItem, StreamerItem, UpdateStagingRequest } from '../../type
 import { cn } from '../../lib/cn'
 import { inputClass } from '../../constants/styles'
 import { ModalOverlay } from '../ModalOverlay'
-import { Badge, Button } from '../../../../public/packages/ui/src'
+import { Badge } from '../ui/Badge'
+import { Button } from '../ui/Button'
 
 interface EditParticipant {
     id: number

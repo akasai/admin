@@ -9,7 +9,8 @@ import { panelClass } from '../constants/styles'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { ListEmpty, ListError, ListLoading } from '../components/ListState'
 import { StagingEditModal } from '../components/staging/StagingEditModal'
-import { Badge, Button } from '../../../public/packages/ui/src'
+import { Badge } from '../components/ui/Badge'
+import { Button } from '../components/ui/Button'
 
 const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'] as const
 

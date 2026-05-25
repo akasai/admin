@@ -1,5 +1,5 @@
 import { ModalOverlay } from './ModalOverlay'
-import { Button } from '../../../public/packages/ui/src'
+import { Button } from './ui/Button'
 
 interface ConfirmModalProps {
     title: string

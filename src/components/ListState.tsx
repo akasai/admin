@@ -1,5 +1,5 @@
 import { cn } from '../lib/cn'
-import { Button } from '../../../public/packages/ui/src'
+import { Button } from './ui/Button'
 
 interface ListLoadingProps {
     className?: string

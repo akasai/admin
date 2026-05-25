@@ -9,6 +9,7 @@ export interface PinnedEventItem {
 export interface PinnedBroadcastStreamer {
   id: number
   name: string
+  streamerId?: number
   isHost: boolean
 }
 
@@ -33,7 +34,7 @@ export interface CreatePinnedEventEntry {
   title: string
   startTime?: string | null
   participants?: Array<{
-    streamerId: number
+    streamerId?: number
     name: string
     isHost: boolean
   }>
@@ -47,4 +48,5 @@ export interface CreatePinnedEventRequest {
 export interface UpdatePinnedEventRequest {
   name?: string
   isActive?: boolean
+  entries?: CreatePinnedEventEntry[]
 }

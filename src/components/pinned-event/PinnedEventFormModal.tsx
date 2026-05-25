@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CalendarPlus, ChevronDown, ChevronRight, Clock, Plus, Type, X } from 'lucide-react'
 import { useAdminToast, useCreatePinnedEvent, useUpdatePinnedEvent, usePinnedEventDetail, useStreamers } from '../../hooks'
 import type { CreatePinnedEventEntry } from '../../types'
@@ -34,7 +34,6 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
     const [step, setStep] = useState(1)
     const [name, setName] = useState('')
     const [editName, setEditName] = useState('')
-    const [editNameInitialized, setEditNameInitialized] = useState(false)
 
     const [dates, setDates] = useState<string[]>([])
     const [dateInput, setDateInput] = useState('')
@@ -44,14 +43,36 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
     const [entries, setEntries] = useState<EntryDraft[]>([])
     const [error, setError] = useState<string | null>(null)
 
-    if (isEditMode && detail !== undefined && !editNameInitialized) {
-        setEditName(detail.name)
-        setEditNameInitialized(true)
-    }
-
     const pending = createMutation.isPending || updateMutation.isPending
 
     const sortedDates = useMemo(() => [...dates].sort(), [dates])
+
+    useEffect(() => {
+        if (!isEditMode || detail === undefined) return
+
+        const normalizedEntries = [...detail.broadcasts]
+            .sort((a, b) => {
+                const left = `${a.date}|${a.startTime ?? ''}`
+                const right = `${b.date}|${b.startTime ?? ''}`
+                return left.localeCompare(right)
+            })
+            .map((broadcast) => ({
+                date: broadcast.date,
+                title: broadcast.title,
+                startTime: broadcast.startTime ?? '',
+                participants: (broadcast.streamers ?? []).map((streamer) => ({
+                    name: streamer.name,
+                    streamerId: streamer.streamerId,
+                    isHost: streamer.isHost,
+                })),
+                expanded: true,
+            }))
+
+        setEditName(detail.name)
+        setDates(normalizedEntries.map((entry) => entry.date))
+        setEntries(normalizedEntries)
+        setError(null)
+    }, [detail, isEditMode])
 
     function addDate(): void {
         if (dateInput.length === 0) return
@@ -65,6 +86,33 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
     }
 
     function removeDate(date: string): void {
+        setDates((prev) => prev.filter((d) => d !== date))
+    }
+
+    function addEditDate(): void {
+        if (dateInput.length === 0) return
+        if (entries.some((entry) => entry.date === dateInput)) {
+            setError('이미 추가된 날짜입니다.')
+            return
+        }
+
+        setEntries((prev) => [
+            ...prev,
+            {
+                date: dateInput,
+                title: editName.trim(),
+                startTime: '',
+                participants: [],
+                expanded: true,
+            },
+        ])
+        setDates((prev) => [...prev, dateInput])
+        setDateInput('')
+        setError(null)
+    }
+
+    function removeEntry(date: string): void {
+        setEntries((prev) => prev.filter((entry) => entry.date !== date))
         setDates((prev) => prev.filter((d) => d !== date))
     }
 
@@ -117,10 +165,8 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
             date: entry.date,
             title: entry.title.trim().length > 0 ? entry.title.trim() : name.trim(),
             startTime: entry.startTime.length > 0 ? entry.startTime : null,
-            participants: entry.participants
-                .filter((p) => p.streamerId !== undefined)
-                .map((p) => ({
-                    streamerId: p.streamerId as number,
+            participants: entry.participants.map((p) => ({
+                    streamerId: p.streamerId,
                     name: p.name,
                     isHost: p.isHost,
                 })),
@@ -142,15 +188,99 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
             setError('이벤트 이름은 필수입니다.')
             return
         }
+        if (entries.length === 0) {
+            setError('날짜가 없습니다.')
+            return
+        }
+
+        const builtEntries: CreatePinnedEventEntry[] = entries.map((entry) => ({
+            date: entry.date,
+            title: entry.title.trim().length > 0 ? entry.title.trim() : editName.trim(),
+            startTime: entry.startTime.length > 0 ? entry.startTime : null,
+            participants: entry.participants.map((p) => ({
+                streamerId: p.streamerId,
+                name: p.name,
+                isHost: p.isHost,
+            })),
+        }))
 
         try {
-            await updateMutation.mutateAsync({ id: eventId, body: { name: editName.trim() } })
+            await updateMutation.mutateAsync({ id: eventId, body: { name: editName.trim(), entries: builtEntries } })
             addToast({ message: '고정 일정이 수정되었습니다.', variant: 'success' })
             onClose()
         } catch (err) {
             const message = getErrorMessage(err)
             if (message !== null) addToast({ message, variant: 'error' })
         }
+    }
+
+    function renderEntriesEditor(): JSX.Element {
+        return (
+            <div className="space-y-3">
+                <p className="text-xs text-[#adadb8]">날짜별로 제목, 시간, 참석자를 개별 설정할 수 있습니다.</p>
+
+                {entries.map((entry, index) => (
+                    <div key={entry.date} className="rounded-xl border border-[#3a3a44] bg-[#20202a]">
+                        <button
+                            type="button"
+                            onClick={() => toggleEntryExpanded(index)}
+                            className="flex w-full cursor-pointer items-center justify-between px-4 py-3"
+                        >
+                            <span className="flex items-center gap-2 text-sm font-semibold text-[#efeff1]">
+                                {entry.expanded ? <ChevronDown className="h-4 w-4 text-[#848494]" /> : <ChevronRight className="h-4 w-4 text-[#848494]" />}
+                                {entry.date}
+                            </span>
+                            <span className="text-xs text-[#848494]">
+                                {entry.title.length > 0 ? entry.title : '(제목 없음)'}
+                                {entry.participants.length > 0 && ` · ${entry.participants.length}명`}
+                            </span>
+                        </button>
+
+                        {entry.expanded && (
+                            <div className="space-y-3 border-t border-[#3a3a44] px-4 py-3">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0 flex-1 space-y-3">
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-medium text-[#adadb8]">제목</label>
+                                            <input
+                                                type="text"
+                                                value={entry.title}
+                                                onChange={(event) => updateEntry(index, { title: event.target.value })}
+                                                className={inputClass}
+                                                placeholder="방송 제목"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-medium text-[#adadb8]">시작 시간</label>
+                                            <input
+                                                type="time"
+                                                value={entry.startTime}
+                                                onChange={(event) => updateEntry(index, { startTime: event.target.value })}
+                                                className={inputClass}
+                                            />
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => removeEntry(entry.date)}
+                                        className="cursor-pointer rounded-lg border border-red-500/30 bg-red-500/5 px-2.5 py-1.5 text-xs font-semibold text-red-300 transition hover:bg-red-500/15"
+                                    >
+                                        날짜 삭제
+                                    </button>
+                                </div>
+
+                                <ParticipantManager
+                                    participants={entry.participants}
+                                    streamers={streamers}
+                                    onChange={(participants) => updateEntry(index, { participants })}
+                                />
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+        )
     }
 
     if (isEditMode) {
@@ -187,27 +317,31 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
                         />
                     </div>
 
-                    {detail !== undefined && detail.broadcasts.length > 0 && (
-                        <div className="space-y-2">
-                            <p className="text-xs font-medium text-[#adadb8]">등록된 방송 ({detail.broadcasts.length}개)</p>
-                            <div className="max-h-48 space-y-1 overflow-auto rounded-xl border border-[#3a3a44] bg-[#20202a] p-2">
-                                {detail.broadcasts.map((broadcast) => (
-                                    <div key={broadcast.id} className="flex items-center justify-between rounded-lg bg-[#26262e] px-3 py-2">
-                                        <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm text-[#efeff1]">{broadcast.title}</p>
-                                            <p className="text-xs text-[#848494]">
-                                                {broadcast.date}
-                                                {broadcast.startTime !== null && ` · ${broadcast.startTime}`}
-                                            </p>
-                                        </div>
-                                        {broadcast.streamers.length > 0 && (
-                                            <span className="ml-2 shrink-0 text-xs text-[#848494]">
-                                                {broadcast.streamers.map((s) => s.name).join(', ')}
-                                            </span>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
+                    <div className="space-y-1">
+                        <label className="flex items-center gap-1.5 text-xs font-medium text-[#adadb8]">
+                            <CalendarPlus className="h-3.5 w-3.5" /> 날짜 추가
+                        </label>
+                        <div className="flex gap-2">
+                            <input
+                                type="date"
+                                value={dateInput}
+                                onChange={(event) => setDateInput(event.target.value)}
+                                className={cn(inputClass, 'flex-1')}
+                            />
+                            <button
+                                type="button"
+                                onClick={addEditDate}
+                                className="cursor-pointer inline-flex items-center gap-1.5 rounded-xl border border-[#3a3a44] bg-[#26262e] px-3 py-2 text-xs font-semibold text-[#efeff1] transition hover:bg-[#2e2e39]"
+                            >
+                                <Plus className="h-3.5 w-3.5" />
+                                날짜 추가
+                            </button>
+                        </div>
+                    </div>
+
+                    {entries.length > 0 ? renderEntriesEditor() : (
+                        <div className="flex items-center justify-center rounded-xl border border-dashed border-[#3a3a44] py-6 text-xs text-[#848494]">
+                            날짜를 추가해 세부 일정을 수정해 주세요
                         </div>
                     )}
 
@@ -407,58 +541,7 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
                             날짜별로 제목, 시간, 참석자를 개별 설정할 수 있습니다.
                         </p>
 
-                        {entries.map((entry, index) => (
-                            <div
-                                key={entry.date}
-                                className="rounded-xl border border-[#3a3a44] bg-[#20202a]"
-                            >
-                                <button
-                                    type="button"
-                                    onClick={() => toggleEntryExpanded(index)}
-                                    className="flex w-full cursor-pointer items-center justify-between px-4 py-3"
-                                >
-                                    <span className="flex items-center gap-2 text-sm font-semibold text-[#efeff1]">
-                                        {entry.expanded ? <ChevronDown className="h-4 w-4 text-[#848494]" /> : <ChevronRight className="h-4 w-4 text-[#848494]" />}
-                                        {entry.date}
-                                    </span>
-                                    <span className="text-xs text-[#848494]">
-                                        {entry.title.length > 0 ? entry.title : '(제목 없음)'}
-                                        {entry.participants.length > 0 && ` · ${entry.participants.length}명`}
-                                    </span>
-                                </button>
-
-                                {entry.expanded && (
-                                    <div className="space-y-3 border-t border-[#3a3a44] px-4 py-3">
-                                        <div className="space-y-1">
-                                            <label className="text-xs font-medium text-[#adadb8]">제목</label>
-                                            <input
-                                                type="text"
-                                                value={entry.title}
-                                                onChange={(event) => updateEntry(index, { title: event.target.value })}
-                                                className={inputClass}
-                                                placeholder="방송 제목"
-                                            />
-                                        </div>
-
-                                        <div className="space-y-1">
-                                            <label className="text-xs font-medium text-[#adadb8]">시작 시간</label>
-                                            <input
-                                                type="time"
-                                                value={entry.startTime}
-                                                onChange={(event) => updateEntry(index, { startTime: event.target.value })}
-                                                className={inputClass}
-                                            />
-                                        </div>
-
-                                        <ParticipantManager
-                                            participants={entry.participants}
-                                            streamers={streamers}
-                                            onChange={(participants) => updateEntry(index, { participants })}
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                        {renderEntriesEditor()}
                     </div>
                 )}
 
