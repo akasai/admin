@@ -434,7 +434,26 @@ export function PinnedEventFormModal({ eventId, onClose }: PinnedEventFormModalP
                             </div>
                         </div>
 
-                        {entries.length > 0 ? renderEntriesEditor() : (
+                        {entries.length > 0 ? (
+                            <div className="space-y-2">
+                                <p className="text-xs text-[#848494]">세부 일정은 일정관리 페이지에서 수정할 수 있습니다.</p>
+                                {entries.map((entry, index) => (
+                                    <div key={index} className="flex items-center justify-between rounded-xl border border-[#3a3a44] bg-[#20202a] px-4 py-3">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-semibold text-[#efeff1]">{entry.date}</p>
+                                            {entry.title.length > 0 && <p className="mt-0.5 truncate text-xs text-[#adadb8]">{entry.title}</p>}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeEntry(entry.date)}
+                                            className="cursor-pointer rounded-lg border border-red-500/30 bg-red-500/5 px-2.5 py-1.5 text-xs font-semibold text-red-300 transition hover:bg-red-500/15"
+                                        >
+                                            삭제
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
                             <div className="flex items-center justify-center rounded-xl border border-dashed border-[#3a3a44] py-6 text-xs text-[#848494]">
                                 날짜를 추가해 세부 일정을 수정해 주세요
                             </div>

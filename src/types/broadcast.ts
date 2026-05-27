@@ -50,12 +50,20 @@ export interface DaySchedule {
     items: BroadcastItem[]
 }
 
+/** 고정 일정 그룹 */
+export interface PinnedEventGroup {
+    eventId: number
+    eventName: string
+    items: BroadcastItem[]
+}
+
 /** Daily 응답 */
 export interface DailyScheduleResponse {
     view: 'daily'
     date: string
     totalCount: number
     items: BroadcastItem[]
+    pinnedGroups?: PinnedEventGroup[]
 }
 
 /** Weekly 응답 */
@@ -64,6 +72,7 @@ export interface WeeklyScheduleResponse {
     weekStart: string
     weekEnd: string
     days: DaySchedule[]
+    pinnedGroups?: PinnedEventGroup[]
 }
 
 /** Monthly 응답 */
@@ -73,6 +82,7 @@ export interface MonthlyScheduleResponse {
     gridStart: string
     gridEnd: string
     days: DaySchedule[]
+    pinnedGroups?: PinnedEventGroup[]
 }
 
 export type ScheduleResponse = DailyScheduleResponse | WeeklyScheduleResponse | MonthlyScheduleResponse

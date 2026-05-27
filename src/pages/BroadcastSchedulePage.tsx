@@ -110,11 +110,13 @@ export default function BroadcastSchedulePage() {
 
         if (schedule.view === 'daily') {
             const filtered = { ...schedule, items: filterHidden(schedule.items) }
-            return <DailyView data={filtered} onEdit={setEditingItem} onDelete={setDeletingItem} />
+            const filteredPinnedGroups = schedule.pinnedGroups?.map((g) => ({ ...g, items: filterHidden(g.items) }))
+            return <DailyView data={filtered} pinnedGroups={filteredPinnedGroups} onEdit={setEditingItem} onDelete={setDeletingItem} />
         }
         if (schedule.view === 'weekly') {
             const filtered = { ...schedule, days: schedule.days.map((day) => ({ ...day, items: filterHidden(day.items) })) }
-            return <WeeklyView selectedDate={selectedDate} data={filtered} onEdit={setEditingItem} onDelete={setDeletingItem} />
+            const filteredPinnedGroups = schedule.pinnedGroups?.map((g) => ({ ...g, items: filterHidden(g.items) }))
+            return <WeeklyView selectedDate={selectedDate} data={filtered} pinnedGroups={filteredPinnedGroups} onEdit={setEditingItem} onDelete={setDeletingItem} />
         }
         return null
     }

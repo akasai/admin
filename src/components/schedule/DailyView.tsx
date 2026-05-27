@@ -1,6 +1,6 @@
 import dayjs from 'dayjs'
-import { Eye, EyeOff, Gift, Pencil, Trash2, Zap } from 'lucide-react'
-import type { BroadcastItem, DailyScheduleResponse } from '../../types'
+import { Eye, EyeOff, Gift, Pencil, Pin, Trash2, Zap } from 'lucide-react'
+import type { BroadcastItem, DailyScheduleResponse, PinnedEventGroup } from '../../types'
 import { getBroadcastTypeBadgeClass } from './utils'
 import { cn } from '../../lib/cn'
 import { panelClass } from '../../constants/styles'
@@ -8,6 +8,7 @@ import { ListEmpty } from '../ListState'
 
 interface DailyViewProps {
     data: DailyScheduleResponse
+    pinnedGroups?: PinnedEventGroup[]
     onEdit: (item: BroadcastItem) => void
     onDelete: (item: BroadcastItem) => void
 }
@@ -65,8 +66,10 @@ function StatusIcons({ item }: { item: BroadcastItem }) {
     )
 }
 
-export function DailyView({ data, onEdit, onDelete }: DailyViewProps) {
-    if (data.items.length === 0) {
+export function DailyView({ data, pinnedGroups, onEdit, onDelete }: DailyViewProps) {
+    const hasPinnedItems = pinnedGroups !== undefined && pinnedGroups.some((g) => g.items.length > 0)
+
+    if (data.items.length === 0 && !hasPinnedItems) {
         return (
             <div className={panelClass}>
                 <ListEmpty message="선택한 날짜에 방송 일정이 없습니다." />
@@ -96,6 +99,70 @@ export function DailyView({ data, onEdit, onDelete }: DailyViewProps) {
                     <div>상태</div>
                     <div>작업</div>
                 </div>
+
+                {pinnedGroups?.filter((g) => g.items.length > 0).map((group) => (
+                    <div key={group.eventId} className="border-b border-[#3a3a44]">
+                        <div className="flex min-w-[900px] items-center gap-2 bg-blue-500/5 px-4 py-2">
+                            <Pin className="h-3.5 w-3.5 text-blue-400" />
+                            <span className="text-xs font-semibold text-blue-300">{group.eventName}</span>
+                            <span className="rounded-full bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold text-blue-300">{group.items.length}</span>
+                        </div>
+                        <ul className="divide-y divide-[#3a3a44]">
+                            {group.items.map((item) => (
+                                <li
+                                    key={item.id}
+                                    className="grid min-w-[900px] grid-cols-[80px_minmax(160px,2fr)_72px_100px_minmax(140px,1.3fr)_120px_80px] items-center gap-3 bg-blue-500/5 px-4 py-3"
+                                >
+                                    <div className={cn('text-center text-sm tabular-nums', item.startTime !== null ? 'text-[#efeff1]' : 'text-amber-300')}>{item.startTime !== null ? dayjs(item.startTime).format('HH:mm') : '미정'}</div>
+
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-medium text-[#efeff1]">{item.title}</p>
+                                    </div>
+
+                                    <div className="flex justify-center">
+                                        <span
+                                            className={cn(
+                                                'rounded-full border px-2 py-0.5 text-[11px] font-semibold',
+                                                getBroadcastTypeBadgeClass(item.broadcastType),
+                                            )}
+                                        >
+                                            {item.broadcastType ?? '기타'}
+                                        </span>
+                                    </div>
+
+                                    <div className="truncate text-center text-xs text-[#adadb8]">{item.category?.name ?? '-'}</div>
+
+                                    <div className="flex items-center justify-center">
+                                        <ParticipantAvatars item={item} />
+                                    </div>
+
+                                    <div className="flex items-center justify-center">
+                                        <StatusIcons item={item} />
+                                    </div>
+
+                                    <div className="flex items-center justify-center gap-1.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => onEdit(item)}
+                                            className="cursor-pointer rounded-lg border border-[#3a3a44] p-2 text-[#adadb8] transition hover:bg-[#26262e]"
+                                            aria-label={`${item.title} 수정`}
+                                        >
+                                            <Pencil className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => onDelete(item)}
+                                            className="cursor-pointer rounded-lg border border-red-500/35 p-2 text-red-300 transition hover:bg-red-500/10"
+                                            aria-label={`${item.title} 삭제`}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                ))}
 
                 <ul className="divide-y divide-[#3a3a44]">
                     {sortedItems.map((item) => (
@@ -155,6 +222,60 @@ export function DailyView({ data, onEdit, onDelete }: DailyViewProps) {
 
             {/* 태블릿 카드 레이아웃 (< md) */}
             <div className="space-y-2 p-3 md:hidden">
+                {pinnedGroups?.filter((g) => g.items.length > 0).map((group) => (
+                    <div key={group.eventId} className="space-y-2">
+                        <div className="flex items-center gap-1.5 px-1">
+                            <Pin className="h-3.5 w-3.5 text-blue-400" />
+                            <span className="text-xs font-semibold text-blue-300">{group.eventName}</span>
+                            <span className="rounded-full bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold text-blue-300">{group.items.length}</span>
+                        </div>
+                        {group.items.map((item) => (
+                            <div key={item.id} className="space-y-2 rounded-xl border border-blue-500/30 bg-blue-500/5 p-3">
+                                <div className="flex items-center justify-between">
+                                    <span className={cn('text-sm font-semibold tabular-nums', item.startTime !== null ? 'text-blue-300' : 'text-amber-300')}>{item.startTime !== null ? dayjs(item.startTime).format('HH:mm') : '미정'}</span>
+                                    <span
+                                        className={cn(
+                                            'rounded-full border px-2 py-0.5 text-[11px] font-semibold',
+                                            getBroadcastTypeBadgeClass(item.broadcastType),
+                                        )}
+                                    >
+                                        {item.broadcastType ?? '기타'}
+                                    </span>
+                                </div>
+
+                                <p className="text-sm font-medium text-[#efeff1]">{item.title}</p>
+
+                                {item.category?.name !== undefined && <p className="text-xs text-[#adadb8]">{item.category.name}</p>}
+
+                                <div className="flex items-center justify-between pt-1">
+                                    <div className="flex items-center gap-3">
+                                        <ParticipantAvatars item={item} />
+                                        <StatusIcons item={item} />
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => onEdit(item)}
+                                            className="cursor-pointer rounded-lg border border-[#3a3a44] p-2 text-[#adadb8] transition hover:bg-[#32323d]"
+                                            aria-label={`${item.title} 수정`}
+                                        >
+                                            <Pencil className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => onDelete(item)}
+                                            className="cursor-pointer rounded-lg border border-red-500/35 p-2 text-red-300 transition hover:bg-red-500/10"
+                                            aria-label={`${item.title} 삭제`}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ))}
+
                 {sortedItems.map((item) => (
                     <div key={item.id} className="space-y-2 rounded-xl border border-[#3a3a44] bg-[#26262e] p-3">
                         <div className="flex items-center justify-between">

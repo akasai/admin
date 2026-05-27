@@ -26,6 +26,7 @@ export type {
     ExtractionMeta,
     ReviewBroadcastItem,
     ReviewQueueResponse,
+    PinnedEventGroup,
 } from './broadcast'
 
 export type {
