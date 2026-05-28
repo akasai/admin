@@ -91,6 +91,7 @@ export type ScheduleResponse = DailyScheduleResponse | WeeklyScheduleResponse | 
 export interface CreateBroadcastRequest {
     title: string
     startTime: string | null
+    isTimeUndecided?: boolean
     broadcastType?: string
     categoryId?: number
     thumbnailUrl?: string
@@ -111,6 +112,7 @@ export interface CreateBroadcastRequest {
 export interface UpdateBroadcastRequest {
     title?: string
     startTime?: string | null
+    isTimeUndecided?: boolean
     broadcastType?: string
     categoryId?: number
     thumbnailUrl?: string

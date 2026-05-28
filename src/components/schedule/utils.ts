@@ -57,9 +57,7 @@ export function getDateRangeText(view: 'daily' | 'weekly', selectedDate: dayjs.D
 }
 
 export function toCreatePayload(values: BroadcastFormValues): CreateBroadcastRequest {
-    const startTime = values.isUndecidedTime
-        ? null
-        : (() => { const d = dayjs(`${values.startDate}T${values.startTime}`); return d.isValid() ? d.toISOString() : null })()
+    const parsed = dayjs(`${values.startDate}T${values.isUndecidedTime ? '00:00' : values.startTime}`)
     const participants: BroadcastParticipantInput[] = values.participants.map((item) => ({
         name: item.name,
         streamerId: item.streamerId,
@@ -68,7 +66,8 @@ export function toCreatePayload(values: BroadcastFormValues): CreateBroadcastReq
 
     return {
         title: values.title.trim(),
-        startTime,
+        startTime: parsed.isValid() ? parsed.toISOString() : null,
+        isTimeUndecided: values.isUndecidedTime,
         broadcastType: values.broadcastType.trim() || undefined,
         categoryId: values.categoryId.length > 0 ? Number(values.categoryId) : undefined,
         tags: parseTags(values.tagsInput),
@@ -82,9 +81,7 @@ export function toCreatePayload(values: BroadcastFormValues): CreateBroadcastReq
 }
 
 export function toUpdatePayload(values: BroadcastFormValues): UpdateBroadcastRequest {
-    const startTime = values.isUndecidedTime
-        ? null
-        : (() => { const d = dayjs(`${values.startDate}T${values.startTime}`); return d.isValid() ? d.toISOString() : null })()
+    const parsed = dayjs(`${values.startDate}T${values.isUndecidedTime ? '00:00' : values.startTime}`)
     const participants: BroadcastParticipantInput[] = values.participants.map((item) => ({
         name: item.name,
         streamerId: item.streamerId,
@@ -93,7 +90,8 @@ export function toUpdatePayload(values: BroadcastFormValues): UpdateBroadcastReq
 
     return {
         title: values.title.trim(),
-        startTime,
+        startTime: parsed.isValid() ? parsed.toISOString() : null,
+        isTimeUndecided: values.isUndecidedTime,
         broadcastType: values.broadcastType.trim() || undefined,
         categoryId: values.categoryId.length > 0 ? Number(values.categoryId) : undefined,
         tags: parseTags(values.tagsInput),
