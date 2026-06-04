@@ -50,10 +50,19 @@ export function SortableMenuItem({ menu, onToggleVisibility, onEdit, onDelete }:
                 <code className="hidden rounded bg-card-hover px-1.5 py-0.5 text-xs text-text-muted sm:inline">
                     {menu.path}
                 </code>
-                {menu.is_external && <ExternalLink className="h-3.5 w-3.5 shrink-0 text-text-muted" />}
             </div>
 
             <div className="flex shrink-0 items-center gap-1">
+                {menu.is_external && (
+                    <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        className="cursor-pointer sm:size-8"
+                        onClick={() => window.open(menu.path, '_blank', 'noopener,noreferrer')}
+                    >
+                        <ExternalLink className="h-4 w-4 text-blue-500" />
+                    </Button>
+                )}
                 <Button
                     variant="ghost"
                     size="icon-xs"

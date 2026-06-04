@@ -15,24 +15,56 @@ import {
     type MenuFormData,
 } from '@/components/menu'
 import { Button } from '@/components/shadcn/ui/button'
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/shadcn/ui/alert-dialog'
 import { useAdminToast } from '@/hooks/useAdminToast'
-import { useAdminMenus, useCreateMenu } from '@/hooks/useMenuManage'
+import { useAdminMenus, useCreateMenu, useDeleteMenu, useReorderMenus, useUpdateMenu } from '@/hooks/useMenuManage'
 import { useMenuDnd } from '@/hooks/useMenuDnd'
 
 export default function MenuManagePage() {
     const { addToast } = useAdminToast()
     const { data: apiMenus, isLoading, isError } = useAdminMenus()
     const createMenu = useCreateMenu()
+    const updateMenu = useUpdateMenu()
+    const deleteMenu = useDeleteMenu()
+    const reorderMenus = useReorderMenus()
     const [menus, setMenus] = useState<Menu[]>([])
     const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
 
     const [formOpen, setFormOpen] = useState(false)
     const [editingMenu, setEditingMenu] = useState<Menu | null>(null)
     const [formData, setFormData] = useState<MenuFormData>(EMPTY_FORM)
+    const [deleteTarget, setDeleteTarget] = useState<Menu | null>(null)
+
+    const handleReorder = (reorderedMenus: Menu[]) => {
+        reorderMenus.mutate(
+            {
+                items: reorderedMenus.map((m, idx) => ({
+                    id: m.id,
+                    group: m.group,
+                    sort_order: idx,
+                })),
+            },
+            {
+                onError: () => {
+                    addToast({ message: '순서 변경에 실패했습니다.', variant: 'error' })
+                },
+            }
+        )
+    }
 
     const { sensors, activeMenu, overGroupKey, handleDragStart, handleDragOver, handleDragEnd } = useMenuDnd(
         menus,
-        setMenus
+        setMenus,
+        { onReorder: handleReorder }
     )
 
     useEffect(() => {
@@ -51,7 +83,14 @@ export default function MenuManagePage() {
     }
 
     const handleToggleVisibility = (id: number, visible: boolean) => {
-        setMenus((prev) => prev.map((m) => (m.id === id ? { ...m, is_visible: visible } : m)))
+        updateMenu.mutate(
+            { id, body: { is_visible: visible } },
+            {
+                onError: () => {
+                    addToast({ message: '가시성 변경에 실패했습니다.', variant: 'error' })
+                },
+            }
+        )
     }
 
     const openCreateModal = () => {
@@ -76,19 +115,25 @@ export default function MenuManagePage() {
         if (!formData.title.trim() || !formData.path.trim()) return
 
         if (editingMenu) {
-            setMenus((prev) =>
-                prev.map((m) =>
-                    m.id === editingMenu.id
-                        ? {
-                              ...m,
-                              group: formData.group.trim() || null,
-                              title: formData.title.trim(),
-                              path: formData.path.trim(),
-                              is_external: formData.is_external,
-                              is_visible: formData.is_visible,
-                          }
-                        : m
-                )
+            updateMenu.mutate(
+                {
+                    id: editingMenu.id,
+                    body: {
+                        group: formData.group.trim() || null,
+                        title: formData.title.trim(),
+                        path: formData.path.trim(),
+                        is_external: formData.is_external,
+                        is_visible: formData.is_visible,
+                    },
+                },
+                {
+                    onSuccess: () => {
+                        addToast({ message: '메뉴가 수정되었습니다.', variant: 'success' })
+                    },
+                    onError: () => {
+                        addToast({ message: '메뉴 수정에 실패했습니다.', variant: 'error' })
+                    },
+                }
             )
         } else {
             createMenu.mutate(
@@ -113,8 +158,21 @@ export default function MenuManagePage() {
         setFormOpen(false)
     }
 
-    const handleDelete = (menu: Menu) => {
-        setMenus((prev) => prev.filter((m) => m.id !== menu.id))
+    const handleDeleteClick = (menu: Menu) => {
+        setDeleteTarget(menu)
+    }
+
+    const handleDeleteConfirm = () => {
+        if (!deleteTarget) return
+        deleteMenu.mutate(deleteTarget.id, {
+            onSuccess: () => {
+                addToast({ message: '메뉴가 삭제되었습니다.', variant: 'success' })
+            },
+            onError: () => {
+                addToast({ message: '메뉴 삭제에 실패했습니다.', variant: 'error' })
+            },
+        })
+        setDeleteTarget(null)
     }
 
     if (isLoading) {
@@ -164,7 +222,7 @@ export default function MenuManagePage() {
                             onToggle={() => toggleGroup(groupKey)}
                             onToggleVisibility={handleToggleVisibility}
                             onEdit={openEditModal}
-                            onDelete={handleDelete}
+                            onDelete={handleDeleteClick}
                         />
                     ))}
                 </div>
@@ -180,6 +238,26 @@ export default function MenuManagePage() {
                 onSubmit={handleSubmit}
                 isEditing={!!editingMenu}
             />
+
+            <AlertDialog open={!!deleteTarget} onOpenChange={(open: boolean) => !open && setDeleteTarget(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>메뉴 삭제</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            "{deleteTarget?.title}" 메뉴를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel className="cursor-pointer">취소</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDeleteConfirm}
+                            className="cursor-pointer bg-red-500 hover:bg-red-600"
+                        >
+                            삭제
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

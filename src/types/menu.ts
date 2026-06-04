@@ -29,6 +29,7 @@ export interface UpdateMenuRequest {
 
 export interface ReorderMenuItem {
     id: number
+    group: string | null
     sort_order: number
 }
 

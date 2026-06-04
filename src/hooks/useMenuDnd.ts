@@ -12,7 +12,15 @@ import {
 import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import type { Menu } from '@/components/menu'
 
-export function useMenuDnd(menus: Menu[], setMenus: React.Dispatch<React.SetStateAction<Menu[]>>) {
+interface UseMenuDndOptions {
+    onReorder?: (menus: Menu[]) => void
+}
+
+export function useMenuDnd(
+    menus: Menu[],
+    setMenus: React.Dispatch<React.SetStateAction<Menu[]>>,
+    options?: UseMenuDndOptions
+) {
     const [activeId, setActiveId] = useState<number | null>(null)
     const [overGroupKey, setOverGroupKey] = useState<string | null>(null)
 
@@ -57,18 +65,19 @@ export function useMenuDnd(menus: Menu[], setMenus: React.Dispatch<React.SetStat
         if (!activeMenu || !overMenu) return
 
         const isCrossGroup = activeMenu.group !== overMenu.group
+        const oldIndex = menus.findIndex((m) => m.id === active.id)
+        const newIndex = menus.findIndex((m) => m.id === over.id)
 
-        setMenus((prev) => {
-            const oldIndex = prev.findIndex((m) => m.id === active.id)
-            const newIndex = prev.findIndex((m) => m.id === over.id)
+        let reordered: Menu[]
+        if (isCrossGroup) {
+            const updated = menus.map((m) => (m.id === active.id ? { ...m, group: overMenu.group } : m))
+            reordered = arrayMove(updated, oldIndex, newIndex)
+        } else {
+            reordered = arrayMove(menus, oldIndex, newIndex)
+        }
 
-            if (isCrossGroup) {
-                const updated = prev.map((m) => (m.id === active.id ? { ...m, group: overMenu.group } : m))
-                return arrayMove(updated, oldIndex, newIndex)
-            }
-
-            return arrayMove(prev, oldIndex, newIndex)
-        })
+        setMenus(reordered)
+        options?.onReorder?.(reordered)
     }
 
     const activeMenu = activeId ? menus.find((m) => m.id === activeId) : null
