@@ -7,7 +7,7 @@ const ADMIN_MENUS_QUERY_KEY = ['admin-menus'] as const
 export function useAdminMenus() {
     return useQuery({
         queryKey: ADMIN_MENUS_QUERY_KEY,
-        queryFn: () => adminApiGet<MenuRow[]>('/api/admin/menus'),
+        queryFn: () => adminApiGet<MenuRow[]>('/admin/menus'),
     })
 }
 
@@ -15,7 +15,7 @@ export function useCreateMenu() {
     const queryClient = useQueryClient()
 
     return useMutation({
-        mutationFn: (body: CreateMenuRequest) => adminApiPost<MenuRow>('/api/admin/menus', body),
+        mutationFn: (body: CreateMenuRequest) => adminApiPost<MenuRow>('/admin/menus', body),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: ADMIN_MENUS_QUERY_KEY })
         },
@@ -26,7 +26,7 @@ export function useUpdateMenu() {
     const queryClient = useQueryClient()
 
     return useMutation({
-        mutationFn: ({ id, body }: { id: number; body: UpdateMenuRequest }) => adminApiPatch<MenuRow>(`/api/admin/menus/${id}`, body),
+        mutationFn: ({ id, body }: { id: number; body: UpdateMenuRequest }) => adminApiPatch<MenuRow>(`/admin/menus/${id}`, body),
         onMutate: async ({ id, body }) => {
             await queryClient.cancelQueries({ queryKey: ADMIN_MENUS_QUERY_KEY })
             const previous = queryClient.getQueryData<MenuRow[]>(ADMIN_MENUS_QUERY_KEY)
@@ -50,7 +50,7 @@ export function useDeleteMenu() {
     const queryClient = useQueryClient()
 
     return useMutation({
-        mutationFn: (id: number) => adminApiDelete(`/api/admin/menus/${id}`),
+        mutationFn: (id: number) => adminApiDelete(`/admin/menus/${id}`),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: ADMIN_MENUS_QUERY_KEY })
         },
@@ -61,7 +61,7 @@ export function useReorderMenus() {
     const queryClient = useQueryClient()
 
     return useMutation({
-        mutationFn: (body: ReorderMenusRequest) => adminApiPatch<void>('/api/admin/menus/reorder', body),
+        mutationFn: (body: ReorderMenusRequest) => adminApiPatch<void>('/admin/menus/reorder', body),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: ADMIN_MENUS_QUERY_KEY })
         },
