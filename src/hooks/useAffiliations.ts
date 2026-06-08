@@ -1,15 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { adminApiDelete, adminApiGet, adminApiPatch, adminApiPost } from '../lib/apiClient'
-import type { AffiliationItem, CreateAffiliationRequest, ListAffiliationsResponse, UpdateAffiliationRequest } from '../types'
+import type { AffiliationItem, CreateAffiliationRequest, UpdateAffiliationRequest } from '../types'
 
 const AFFILIATIONS_QUERY_KEY = ['admin-affiliations'] as const
+
+interface GoListAffiliationsResponse {
+    items: AffiliationItem[]
+}
 
 export function useAffiliations() {
     return useQuery({
         queryKey: AFFILIATIONS_QUERY_KEY,
         queryFn: async () => {
-            const res = await adminApiGet<ListAffiliationsResponse>('/api/admin/affiliations')
-            return res.affiliations
+            const res = await adminApiGet<GoListAffiliationsResponse>('/admin/affiliations')
+            return res.items
         },
     })
 }

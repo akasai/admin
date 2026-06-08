@@ -38,7 +38,7 @@ export {
     useInsertCrawledCategories,
 } from './useCategories'
 export { useStreamers, useRegisterStreamer, useRefreshStreamer, useDeleteStreamer, useUpdateStreamer } from './useStreamers'
-export { useStreamerAliases, useCreateStreamerAlias, useDeleteStreamerAlias } from './useStreamerAliases'
+export { useCreateStreamerAlias, useDeleteStreamerAlias } from './useStreamerAliases'
 export { useNotices, useCreateNotice, useUpdateNotice, useDeleteNotice } from './useNotices'
 export { useStaging, useStagingDetail, useUpdateStaging, usePromoteStaging, useDeleteStaging } from './useStaging'
 export { usePinnedEvents, usePinnedEventDetail, useCreatePinnedEvent, useUpdatePinnedEvent, useDeletePinnedEvent } from './usePinnedEvents'

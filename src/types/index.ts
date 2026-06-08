@@ -56,15 +56,19 @@ export type {
 
 export type {
     StreamerAffiliation,
+    StreamerDetail,
+    StreamerDetailAffiliation,
+    StreamerDetailAlias,
     StreamerItem,
     StreamerListResponse,
     StreamerSortType,
     StreamerListParams,
+    StreamerStats,
     RegisterStreamerRequest,
     RegisterStreamerResponse,
     UpdateStreamerRequest,
     StreamerAlias,
-    ListStreamerAliasesResponse,
+    
     CreateStreamerAliasResponse,
     CreateStreamerAliasRequest,
 } from './streamer'

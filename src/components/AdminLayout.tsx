@@ -1,11 +1,21 @@
 import type { LucideIcon } from 'lucide-react'
 import { CalendarDays, ExternalLink, FlaskConical, FolderOpen, Image, Layers, LayoutList, LogOut, Megaphone, Menu, PanelLeftClose, PanelLeftOpen, Pin, Radio, Search, Tag, Users, X } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '../hooks'
 import { cn } from '../lib/cn'
 import { AdminToastProvider } from './AdminToastProvider'
+
+interface SidebarContextValue {
+    collapsed: boolean
+}
+
+const SidebarContext = createContext<SidebarContextValue>({ collapsed: false })
+
+export function useSidebarCollapsed(): boolean {
+    return useContext(SidebarContext).collapsed
+}
 
 interface AdminLayoutProps {
   children: ReactNode
@@ -134,6 +144,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
+    <SidebarContext.Provider value={{ collapsed: sidebarCollapsed }}>
     <AdminToastProvider>
       <div className="dark min-h-screen bg-[#0e0e10] md:flex">
         <div
@@ -215,5 +226,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </main>
       </div>
     </AdminToastProvider>
+    </SidebarContext.Provider>
   )
 }

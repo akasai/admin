@@ -1,27 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { adminApiDelete, adminApiGet, adminApiPost } from '../lib/apiClient'
-import type {
-    CreateStreamerAliasRequest,
-    CreateStreamerAliasResponse,
-    ListStreamerAliasesResponse,
-    StreamerAlias,
-} from '../types'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { adminApiDelete, adminApiPost } from '../lib/apiClient'
+import type { CreateStreamerAliasRequest, CreateStreamerAliasResponse } from '../types'
 
-const STREAMER_ALIASES_QUERY_KEY = ['streamer-aliases'] as const
-
-export function useStreamerAliases(streamerId?: number) {
-    return useQuery({
-        queryKey: [...STREAMER_ALIASES_QUERY_KEY, streamerId],
-        queryFn: async () => {
-            if (streamerId === undefined) return [] as StreamerAlias[]
-            const res = await adminApiGet<ListStreamerAliasesResponse>(
-                `/api/admin/streamers/${streamerId}/aliases`,
-            )
-            return res.items
-        },
-        enabled: streamerId !== undefined,
-    })
-}
+const STREAMER_DETAIL_QUERY_KEY = ['admin-streamers', 'detail'] as const
 
 export function useCreateStreamerAlias() {
     const queryClient = useQueryClient()
@@ -29,13 +10,13 @@ export function useCreateStreamerAlias() {
         mutationFn: ({ streamerId, alias }: { streamerId: number; alias: string }) => {
             const body: CreateStreamerAliasRequest = { alias }
             return adminApiPost<CreateStreamerAliasResponse>(
-                `/api/admin/streamers/${streamerId}/aliases`,
+                `/admin/streamers/${streamerId}/aliases`,
                 body,
             )
         },
         onSuccess: (_data, variables) => {
             void queryClient.invalidateQueries({
-                queryKey: [...STREAMER_ALIASES_QUERY_KEY, variables.streamerId],
+                queryKey: [...STREAMER_DETAIL_QUERY_KEY, variables.streamerId],
             })
         },
     })
@@ -45,10 +26,10 @@ export function useDeleteStreamerAlias() {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: ({ streamerId, aliasId }: { streamerId: number; aliasId: number }) =>
-            adminApiDelete(`/api/admin/streamers/${streamerId}/aliases/${aliasId}`),
+            adminApiDelete(`/admin/streamers/${streamerId}/aliases/${aliasId}`),
         onSuccess: (_data, variables) => {
             void queryClient.invalidateQueries({
-                queryKey: [...STREAMER_ALIASES_QUERY_KEY, variables.streamerId],
+                queryKey: [...STREAMER_DETAIL_QUERY_KEY, variables.streamerId],
             })
         },
     })
