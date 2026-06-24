@@ -21,7 +21,7 @@ export function useAffiliations() {
 export function useCreateAffiliation() {
     const queryClient = useQueryClient()
     return useMutation({
-        mutationFn: (body: CreateAffiliationRequest) => adminApiPost<AffiliationItem>('/api/admin/affiliations', body),
+        mutationFn: (body: CreateAffiliationRequest) => adminApiPost<AffiliationItem>('/admin/affiliations', body),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: AFFILIATIONS_QUERY_KEY })
         },
@@ -32,7 +32,7 @@ export function useUpdateAffiliation() {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: ({ id, body }: { id: number; body: UpdateAffiliationRequest }) =>
-            adminApiPatch<AffiliationItem>(`/api/admin/affiliations/${id}`, body),
+            adminApiPatch<AffiliationItem>(`/admin/affiliations/${id}`, body),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: AFFILIATIONS_QUERY_KEY })
         },
@@ -42,7 +42,7 @@ export function useUpdateAffiliation() {
 export function useDeleteAffiliation() {
     const queryClient = useQueryClient()
     return useMutation({
-        mutationFn: (id: number) => adminApiDelete(`/api/admin/affiliations/${id}`),
+        mutationFn: (id: number) => adminApiDelete(`/admin/affiliations/${id}`),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: AFFILIATIONS_QUERY_KEY })
         },

@@ -1,14 +1,9 @@
 import { useState } from 'react'
-import { Crown, Filter, SlidersHorizontal, X } from 'lucide-react'
+import { Crown, Filter, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/shadcn/ui/button'
 import { Badge } from '@/components/shadcn/ui/badge'
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/shadcn/ui/dialog'
+import { cn } from '@/lib/cn'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/shadcn/ui/dialog'
 
 export type StreamerTypeFilter = 'all' | 'cam' | 'vtuber' | 'hybrid'
 export type PartnerFilter = 'all' | 'partner' | 'non-partner'
@@ -19,6 +14,7 @@ interface StreamerFiltersProps {
     onTypeFilterChange: (filter: StreamerTypeFilter) => void
     onPartnerFilterChange: (filter: PartnerFilter) => void
     onClearFilters: () => void
+    className?: string
 }
 
 const typeOptions: { value: StreamerTypeFilter; label: string }[] = [
@@ -40,10 +36,17 @@ export function StreamerFilters({
     onTypeFilterChange,
     onPartnerFilterChange,
     onClearFilters,
+    className,
 }: StreamerFiltersProps) {
     const [mobileOpen, setMobileOpen] = useState(false)
     const hasActiveFilters = typeFilter !== 'all' || partnerFilter !== 'all'
     const activeFilterCount = (typeFilter !== 'all' ? 1 : 0) + (partnerFilter !== 'all' ? 1 : 0)
+
+    const filterButtonClass = (active: boolean) =>
+        cn(
+            'cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 lg:py-1.5 lg:text-xs',
+            active ? 'bg-primary text-bg shadow-card' : 'text-text-muted hover:bg-card-hover hover:text-text',
+        )
 
     const FilterContent = ({ onClose }: { onClose?: () => void }) => (
         <div className="space-y-4">
@@ -60,11 +63,7 @@ export function StreamerFilters({
                             onClick={() => {
                                 onTypeFilterChange(option.value)
                             }}
-                            className={`cursor-pointer rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                                typeFilter === option.value
-                                    ? 'bg-primary text-white'
-                                    : 'bg-card-hover text-text-muted hover:text-text'
-                            }`}
+                            className={filterButtonClass(typeFilter === option.value)}
                         >
                             {option.label}
                         </button>
@@ -85,11 +84,7 @@ export function StreamerFilters({
                             onClick={() => {
                                 onPartnerFilterChange(option.value)
                             }}
-                            className={`cursor-pointer rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                                partnerFilter === option.value
-                                    ? 'bg-primary text-white'
-                                    : 'bg-card-hover text-text-muted hover:text-text'
-                            }`}
+                            className={filterButtonClass(partnerFilter === option.value)}
                         >
                             {option.label}
                         </button>
@@ -119,15 +114,18 @@ export function StreamerFilters({
     )
 
     return (
-        <div className="space-y-3">
+        <div className={cn('space-y-3', className)}>
             <div className="lg:hidden">
                 <Dialog open={mobileOpen} onOpenChange={setMobileOpen}>
                     <DialogTrigger asChild>
-                        <Button variant="outline" className="gap-2">
+                        <Button
+                            variant="outline"
+                            className="h-11 gap-2 rounded-xl border-border bg-card-hover text-text hover:bg-card-hover/80"
+                        >
                             <SlidersHorizontal className="h-4 w-4" />
                             필터
                             {activeFilterCount > 0 && (
-                                <Badge variant="default" className="ml-1 h-5 min-w-5 px-1.5">
+                                <Badge variant="default" className="ml-1 h-5 min-w-5 bg-primary px-1.5 text-bg">
                                     {activeFilterCount}
                                 </Badge>
                             )}
@@ -136,6 +134,7 @@ export function StreamerFilters({
                     <DialogContent className="!top-auto !bottom-0 !translate-y-0 rounded-t-2xl rounded-b-none data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom sm:!top-[50%] sm:!bottom-auto sm:!translate-y-[-50%] sm:rounded-lg">
                         <DialogHeader>
                             <DialogTitle>필터</DialogTitle>
+                            <DialogDescription>스트리머 타입과 파트너 여부로 목록을 좁힙니다.</DialogDescription>
                         </DialogHeader>
                         <FilterContent onClose={() => setMobileOpen(false)} />
                     </DialogContent>
@@ -143,42 +142,34 @@ export function StreamerFilters({
             </div>
 
             <div className="hidden lg:block">
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="flex shrink-0 items-center gap-2 text-sm text-text-muted">
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2 rounded-2xl border border-border bg-card/80 p-1.5 shadow-card">
+                        <div className="flex shrink-0 items-center gap-2 px-2 text-sm font-medium text-text-muted">
                             <Filter className="h-4 w-4" />
                             <span>필터</span>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                            <div className="flex items-center rounded-lg border border-border bg-card p-1">
+                        <div className="flex items-center gap-1.5">
+                            <div className="flex items-center rounded-xl bg-bg-secondary p-1">
                                 {typeOptions.map((option) => (
                                     <button
                                         key={option.value}
                                         type="button"
                                         onClick={() => onTypeFilterChange(option.value)}
-                                        className={`cursor-pointer whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                                            typeFilter === option.value
-                                                ? 'bg-primary text-white'
-                                                : 'text-text-muted hover:bg-card-hover hover:text-text'
-                                        }`}
+                                        className={cn('whitespace-nowrap', filterButtonClass(typeFilter === option.value))}
                                     >
                                         {option.label}
                                     </button>
                                 ))}
                             </div>
 
-                            <div className="flex items-center rounded-lg border border-border bg-card p-1">
+                            <div className="flex items-center rounded-xl bg-bg-secondary p-1">
                                 {partnerOptions.map((option) => (
                                     <button
                                         key={option.value}
                                         type="button"
                                         onClick={() => onPartnerFilterChange(option.value)}
-                                        className={`cursor-pointer whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                                            partnerFilter === option.value
-                                                ? 'bg-primary text-white'
-                                                : 'text-text-muted hover:bg-card-hover hover:text-text'
-                                        }`}
+                                        className={cn('whitespace-nowrap', filterButtonClass(partnerFilter === option.value))}
                                     >
                                         {option.label}
                                     </button>
@@ -186,48 +177,8 @@ export function StreamerFilters({
                             </div>
                         </div>
                     </div>
-
                 </div>
             </div>
-
-            {hasActiveFilters && (
-                <div className="hidden items-center gap-2 lg:flex">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                        {typeFilter !== 'all' && (
-                            <Badge variant="secondary" className="gap-1 pl-2 pr-1">
-                                {typeOptions.find((o) => o.value === typeFilter)?.label}
-                                <button
-                                    type="button"
-                                    onClick={() => onTypeFilterChange('all')}
-                                    className="cursor-pointer rounded-full p-0.5 hover:bg-card-hover"
-                                >
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </Badge>
-                        )}
-                        {partnerFilter !== 'all' && (
-                            <Badge variant="secondary" className="gap-1 pl-2 pr-1">
-                                {partnerOptions.find((o) => o.value === partnerFilter)?.label}
-                                <button
-                                    type="button"
-                                    onClick={() => onPartnerFilterChange('all')}
-                                    className="cursor-pointer rounded-full p-0.5 hover:bg-card-hover"
-                                >
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </Badge>
-                        )}
-                    </div>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={onClearFilters}
-                        className="h-7 cursor-pointer px-2 text-xs text-text-muted hover:text-text"
-                    >
-                        초기화
-                    </Button>
-                </div>
-            )}
         </div>
     )
 }
