@@ -1,77 +1,79 @@
 import { type ReactNode, useCallback, useMemo, useState } from 'react'
+import { X } from 'lucide-react'
 import { TOAST_DEFAULT_DURATION_MS } from '../constants'
 import { type AddToastInput, AdminToastContext, type ToastItem, type ToastVariant } from '../hooks/useAdminToast'
-
-function resolveId() {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID()
-  }
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
-}
+import { createUuid } from '@/lib/uuid'
 
 function getToastStyle(variant: ToastVariant) {
-  if (variant === 'error') {
-    return 'border-red-200 bg-red-50 text-red-600 dark:border-red-900/30 dark:bg-red-900/10 dark:text-red-300'
-  }
-  if (variant === 'info') {
-    return 'border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-900/30 dark:bg-blue-900/10 dark:text-blue-300'
-  }
-  return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/30 dark:bg-emerald-900/10 dark:text-emerald-300'
+    if (variant === 'error') {
+        return 'border-live/40 bg-[var(--color-danger-soft)] text-text'
+    }
+    if (variant === 'info') {
+        return 'border-border bg-card text-text'
+    }
+    return 'border-primary/35 bg-[var(--color-success-soft)] text-text'
+}
+
+function getToastLabel(variant: ToastVariant) {
+    if (variant === 'error') return '오류'
+    if (variant === 'info') return '안내'
+    return '완료'
 }
 
 export function AdminToastProvider({ children }: { children: ReactNode }) {
-  const [ toasts, setToasts ] = useState<ToastItem[]>([])
+    const [toasts, setToasts] = useState<ToastItem[]>([])
 
-  const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id))
-  }, [])
+    const removeToast = useCallback((id: string) => {
+        setToasts((prev) => prev.filter((toast) => toast.id !== id))
+    }, [])
 
-  const addToast = useCallback(
-    ({ message, variant = 'success', duration = TOAST_DEFAULT_DURATION_MS }: AddToastInput) => {
-      const id = resolveId()
-      setToasts((prev) => [
-        ...prev,
-        {
-          id,
-          message,
-          variant,
+    const addToast = useCallback(
+        ({ message, variant = 'success', duration = TOAST_DEFAULT_DURATION_MS }: AddToastInput) => {
+            const id = createUuid()
+            setToasts((prev) => [...prev, { id, message, variant }])
+            if (duration > 0) {
+                window.setTimeout(() => removeToast(id), duration)
+            }
         },
-      ])
-      if (duration > 0) {
-        window.setTimeout(() => removeToast(id), duration)
-      }
-    },
-    [ removeToast ],
-  )
+        [removeToast],
+    )
 
-  const value = useMemo(() => ({ addToast }), [ addToast ])
+    const value = useMemo(() => ({ addToast }), [addToast])
 
-  return (
-    <AdminToastContext.Provider value={value}>
-      {children}
-      <div className="fixed bottom-6 right-6 z-50 flex w-80 flex-col gap-2">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            role="status"
-            aria-live="polite"
-            className={`rounded-xl border px-4 py-3 text-sm shadow-lg ${getToastStyle(
-              toast.variant,
-            )}`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <span className="leading-5">{toast.message}</span>
-              <button
-                type="button"
-                onClick={() => removeToast(toast.id)}
-                className="text-xs opacity-60 transition hover:opacity-100"
-              >
-                닫기
-              </button>
+    return (
+        <AdminToastContext.Provider value={value}>
+            {children}
+            <div
+                className="pointer-events-none fixed inset-x-4 bottom-4 z-[70] flex max-w-[calc(100vw-2rem)] flex-col gap-2 sm:left-auto sm:right-6 sm:bottom-6 sm:w-96"
+                aria-label="알림"
+            >
+                {toasts.map((toast) => (
+                    <div
+                        key={toast.id}
+                        role={toast.variant === 'error' ? 'alert' : 'status'}
+                        aria-live={toast.variant === 'error' ? 'assertive' : 'polite'}
+                        aria-atomic="true"
+                        className={`pointer-events-auto rounded-lg border px-4 py-3 shadow-modal-center ${getToastStyle(toast.variant)}`}
+                    >
+                        <div className="flex min-w-0 items-start gap-3">
+                            <div className="min-w-0 flex-1">
+                                <p className="mb-0.5 text-[11px] font-semibold tracking-[0.08em] text-text-dim">
+                                    {getToastLabel(toast.variant)}
+                                </p>
+                                <p className="break-words text-sm leading-5 text-text">{toast.message}</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => removeToast(toast.id)}
+                                className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-md text-text-muted transition-colors hover:bg-card hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                aria-label="알림 닫기"
+                            >
+                                <X className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                        </div>
+                    </div>
+                ))}
             </div>
-          </div>
-        ))}
-      </div>
-    </AdminToastContext.Provider>
-  )
+        </AdminToastContext.Provider>
+    )
 }

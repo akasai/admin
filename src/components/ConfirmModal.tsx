@@ -1,3 +1,4 @@
+import { AlertTriangle } from 'lucide-react'
 import { ModalOverlay } from './ModalOverlay'
 import { Button } from './ui/Button'
 
@@ -23,21 +24,18 @@ export function ConfirmModal({
     onConfirm,
 }: ConfirmModalProps) {
     return (
-        <ModalOverlay size="sm" disabled={pending} onClose={onClose}>
-            <div className="px-6 py-5">
-                <h3 className="text-base font-bold text-[#efeff1]">{title}</h3>
-                <p className="mt-2 text-sm text-[#adadb8]">
-                    <span className="font-semibold text-[#efeff1]">{itemName}</span> {message}
+        <ModalOverlay ariaLabel={title} size="sm" disabled={pending} onClose={onClose}>
+            <div className="px-5 pb-5 pt-6 sm:px-6">
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-md border border-live/35 bg-[var(--color-danger-soft)] text-[var(--color-danger)]">
+                    <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <h3 className="text-base font-bold tracking-[-0.015em] text-text">{title}</h3>
+                <p className="mt-2 break-words text-sm leading-6 text-text-muted">
+                    <span className="font-semibold text-text">{itemName}</span> {message}
                 </p>
             </div>
-            <div className="flex gap-2 border-t border-[#3a3a44] px-6 py-4">
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={onClose}
-                    disabled={pending}
-                    className="h-auto flex-1 rounded-xl border-[#3a3a44] py-2.5 text-sm font-medium text-[#adadb8] hover:bg-[#26262e] hover:text-[#adadb8]"
-                >
+            <div className="flex gap-2 border-t border-border bg-bg px-5 py-4 sm:px-6">
+                <Button type="button" variant="outline" onClick={onClose} disabled={pending} className="min-w-0 flex-1">
                     취소
                 </Button>
                 <Button
@@ -45,7 +43,8 @@ export function ConfirmModal({
                     variant="destructive"
                     onClick={onConfirm}
                     disabled={pending}
-                    className="h-auto flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-500"
+                    loading={pending}
+                    className="min-w-0 flex-1"
                 >
                     {pending ? pendingLabel : confirmLabel}
                 </Button>

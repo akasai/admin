@@ -1,0 +1,12 @@
+[
+  {
+    "date": "2026-08-31",
+    "scope": "app",
+    "macrostructure": "Workbench",
+    "theme": "custom",
+    "theme_axes": "dark / geometric-sans / chromatic-green ~158°",
+    "vibe": "operational precision, restrained, late-night, trustworthy",
+    "enrichment": "none",
+    "brief": "Standalone Go-backed admin redesign across four operational routes"
+  }
+]

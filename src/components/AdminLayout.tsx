@@ -1,39 +1,12 @@
+import * as Dialog from '@radix-ui/react-dialog'
 import type { LucideIcon } from 'lucide-react'
-import {
-    CalendarDays,
-    ExternalLink,
-    FlaskConical,
-    FolderOpen,
-    Image,
-    Layers,
-    LayoutList,
-    LogOut,
-    Megaphone,
-    Menu,
-    PanelLeftClose,
-    PanelLeftOpen,
-    Pin,
-    Radio,
-    Search,
-    Tag,
-    Users,
-    X,
-} from 'lucide-react'
+import { CalendarDays, ExternalLink, FolderOpen, LogOut, Menu, PanelLeftClose, PanelLeftOpen, ScanSearch, Users, X } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { createContext, useContext, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '../hooks'
 import { cn } from '../lib/cn'
 import { AdminToastProvider } from './AdminToastProvider'
-interface SidebarContextValue {
-    collapsed: boolean
-}
-
-const SidebarContext = createContext<SidebarContextValue>({ collapsed: false })
-
-export function useSidebarCollapsed(): boolean {
-    return useContext(SidebarContext).collapsed
-}
 
 interface AdminLayoutProps {
     children: ReactNode
@@ -45,33 +18,23 @@ interface NavItem {
     icon: LucideIcon
 }
 
-interface NavSection {
-    title: string
+interface NavGroup {
+    label: string
     items: NavItem[]
 }
 
-const NAV_SECTIONS: NavSection[] = [
+const NAV_GROUPS: NavGroup[] = [
     {
-        title: '관리',
+        label: '편성 데이터',
         items: [
             { to: '/schedule', label: '일정 관리', icon: CalendarDays },
             { to: '/streamers', label: '스트리머 관리', icon: Users },
-            { to: '/affiliations', label: '소속 관리', icon: Tag },
             { to: '/categories', label: '카테고리 관리', icon: FolderOpen },
-            { to: '/banners', label: '배너 관리', icon: Image },
-            { to: '/menus', label: '메뉴 관리', icon: LayoutList },
-            { to: '/notices', label: '공지 관리', icon: Megaphone },
-            { to: '/pinned-events', label: '고정 일정', icon: Pin },
         ],
     },
     {
-        title: '운영',
-        items: [
-            { to: '/discovery', label: '스트리머 크롤링', icon: Search },
-            { to: '/broadcast-crawl', label: '방송 크롤링', icon: Radio },
-            { to: '/crawl-groups', label: '크롤링 스케줄', icon: Layers },
-            { to: '/staging', label: '스테이징', icon: FlaskConical },
-        ],
+        label: '운영 검토',
+        items: [{ to: '/crawler/reviews', label: '크롤러 검토', icon: ScanSearch }],
     },
 ]
 
@@ -82,172 +45,184 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('admin-sidebar-collapsed') === 'true')
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-    useEffect(() => {
-        setMobileMenuOpen(false)
-    }, [location.pathname])
-
-    useEffect(() => {
-        if (!mobileMenuOpen) return
-        const previousOverflow = document.body.style.overflow
-        document.body.style.overflow = 'hidden'
-        return () => {
-            document.body.style.overflow = previousOverflow
-        }
-    }, [mobileMenuOpen])
-
-    function handleToggleSidebar() {
-        setSidebarCollapsed((prev) => {
-            const next = !prev
-            localStorage.setItem('admin-sidebar-collapsed', String(next))
-            return next
-        })
-    }
+    useEffect(() => setMobileMenuOpen(false), [location.pathname])
 
     function handleLogout() {
         logout()
         navigate('/', { replace: true })
     }
 
-    function renderNavContent(isMobile = false) {
-        return (
-            <>
-                <nav className="flex flex-1 flex-col px-3 py-3">
-                    <div className="space-y-4">
-                        {NAV_SECTIONS.map((section) => (
-                            <div key={section.title}>
-                                {(!sidebarCollapsed || isMobile) && (
-                                    <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-[#848494]">
-                                        {section.title}
-                                    </p>
-                                )}
-                                <div className="space-y-0.5">
-                                    {section.items.map((item) => (
-                                        <NavLink
-                                            key={item.to}
-                                            to={item.to}
-                                            title={!isMobile && sidebarCollapsed ? item.label : undefined}
-                                            className={({ isActive }) =>
-                                                cn(
-                                                    'flex items-center rounded-lg px-3 py-2 text-sm font-medium transition',
-                                                    !isMobile && sidebarCollapsed ? 'justify-center' : 'gap-2',
-                                                    isActive
-                                                        ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-                                                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-[#adadb8] dark:hover:bg-[#2e2e38] dark:hover:text-[#efeff1]',
-                                                )
-                                            }
-                                        >
-                                            <item.icon className="h-4 w-4 shrink-0" />
-                                            {(isMobile || !sidebarCollapsed) && <span>{item.label}</span>}
-                                        </NavLink>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </nav>
+    function toggleSidebar() {
+        setSidebarCollapsed((value) => {
+            const next = !value
+            localStorage.setItem('admin-sidebar-collapsed', String(next))
+            return next
+        })
+    }
 
-                <div className="border-t border-gray-300 px-3 py-3 dark:border-[#3a3a44]">
-                    <button
-                        onClick={handleLogout}
-                        title={!isMobile && sidebarCollapsed ? '로그아웃' : undefined}
-                        className={cn(
-                            'flex w-full cursor-pointer items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-700 dark:text-[#adadb8] dark:hover:bg-[#2e2e38] dark:hover:text-[#efeff1]',
-                            !isMobile && sidebarCollapsed ? 'justify-center' : 'gap-2',
-                        )}
-                    >
-                        <LogOut className="h-4 w-4 shrink-0" />
-                        {(isMobile || !sidebarCollapsed) && <span>로그아웃</span>}
-                    </button>
-                </div>
-            </>
+    function navigation(collapsed = false) {
+        return (
+            <nav aria-label="관리 메뉴" className="flex flex-1 flex-col gap-6 px-3 py-5">
+                {NAV_GROUPS.map((group) => (
+                    <div key={group.label}>
+                        <p className={cn('mb-2 px-3 text-[11px] font-semibold tracking-[0.12em] text-text-dim', collapsed && 'sr-only')}>
+                            {group.label}
+                        </p>
+                        <div className="space-y-1">
+                            {group.items.map((item) => (
+                                <NavLink
+                                    key={item.to}
+                                    to={item.to}
+                                    title={collapsed ? item.label : undefined}
+                                    className={({ isActive }) =>
+                                        cn(
+                                            'group flex min-h-11 items-center rounded-md border border-transparent px-3 text-sm font-semibold transition-[background-color,color,border-color] duration-[var(--dur-short)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                                            collapsed ? 'justify-center' : 'gap-3',
+                                            isActive
+                                                ? 'border-primary/25 bg-primary/10 text-primary'
+                                                : 'text-text-muted hover:border-border hover:bg-card hover:text-text',
+                                        )
+                                    }
+                                >
+                                    <item.icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+                                    {!collapsed && <span className="truncate">{item.label}</span>}
+                                </NavLink>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </nav>
         )
     }
 
+    function footerActions(collapsed = false) {
+        return (
+            <div className="space-y-1 border-t border-border px-3 py-4">
+                <a
+                    href="https://ohbang-it.kr"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={collapsed ? '서비스로 이동' : undefined}
+                    className={cn(
+                        'flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-text-muted transition-colors duration-[var(--dur-short)] hover:bg-card hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                        collapsed ? 'justify-center' : 'gap-3',
+                    )}
+                >
+                    <ExternalLink className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+                    {!collapsed && <span>서비스로 이동</span>}
+                </a>
+                <button
+                    type="button"
+                    onClick={handleLogout}
+                    title={collapsed ? '로그아웃' : undefined}
+                    className={cn(
+                        'flex min-h-11 w-full cursor-pointer items-center rounded-md px-3 text-sm font-medium text-text-muted transition-colors duration-[var(--dur-short)] hover:bg-card hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                        collapsed ? 'justify-center' : 'gap-3',
+                    )}
+                >
+                    <LogOut className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+                    {!collapsed && <span>로그아웃</span>}
+                </button>
+            </div>
+        )
+    }
+
+    const brand = (compact = false) => (
+        <div className={cn('min-w-0', compact && 'text-center')}>
+            <div className="font-koverwatch text-xl leading-none tracking-[0.08em] text-text">{compact ? 'O' : 'OHBANGIT'}</div>
+            {!compact && <p className="mt-1 font-mono text-[10px] font-medium tracking-[0.14em] text-text-dim">ADMIN WORKBENCH</p>}
+        </div>
+    )
+
     return (
-        <SidebarContext.Provider value={{ collapsed: sidebarCollapsed }}>
-            <AdminToastProvider>
-                <div className="dark min-h-screen bg-[#0e0e10] md:flex">
+        <AdminToastProvider>
+            <div className="dark min-h-screen bg-bg text-text lg:flex">
+                <aside
+                    className={cn(
+                        'sticky top-0 hidden h-screen shrink-0 flex-col border-r border-border bg-bg-secondary lg:flex',
+                        sidebarCollapsed ? 'w-[72px]' : 'w-64',
+                    )}
+                >
                     <div
                         className={cn(
-                            'fixed inset-0 z-40 bg-black/60 transition-opacity md:hidden',
-                            mobileMenuOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
-                        )}
-                        onClick={() => setMobileMenuOpen(false)}
-                    />
-
-                    <aside
-                        className={cn(
-                            'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-gray-300 bg-white transition-transform duration-200 dark:border-[#3a3a44] dark:bg-[#1a1a23] md:static md:z-auto md:translate-x-0 md:transition-all',
-                            mobileMenuOpen ? 'translate-x-0' : '-translate-x-full',
-                            sidebarCollapsed ? 'md:w-14' : 'md:w-56',
+                            'flex min-h-20 items-center border-b border-border',
+                            sidebarCollapsed ? 'justify-center px-2' : 'justify-between px-5',
                         )}
                     >
-                        <div
-                            className={cn(
-                                'flex h-14 items-center border-b border-gray-300 dark:border-[#3a3a44]',
-                                sidebarCollapsed ? 'justify-center px-0 md:px-0' : 'justify-between px-5',
-                            )}
-                        >
-                            {(mobileMenuOpen || !sidebarCollapsed) && (
-                                <span className="text-sm font-bold text-gray-900 dark:text-[#efeff1]">어드민</span>
-                            )}
-                            <div className="flex items-center gap-1">
-                                <a
-                                    href="https://ohbang-it.kr"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    title="사이트 바로가기"
-                                    className="cursor-pointer rounded-md p-1.5 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-[#adadb8] dark:hover:bg-[#2e2e38] dark:hover:text-[#efeff1]"
-                                >
-                                    <ExternalLink className="h-4 w-4" />
-                                </a>
-                                <button
-                                    type="button"
-                                    onClick={() => setMobileMenuOpen(false)}
-                                    title="메뉴 닫기"
-                                    className="cursor-pointer rounded-md p-1.5 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-[#adadb8] dark:hover:bg-[#2e2e38] dark:hover:text-[#efeff1] md:hidden"
-                                >
-                                    <X className="h-4 w-4" />
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleToggleSidebar}
-                                    title={sidebarCollapsed ? '사이드바 열기' : '사이드바 닫기'}
-                                    className="hidden cursor-pointer rounded-md p-1.5 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-[#adadb8] dark:hover:bg-[#2e2e38] dark:hover:text-[#efeff1] md:block"
-                                >
-                                    {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-                                </button>
-                            </div>
-                        </div>
-
-                        {renderNavContent(mobileMenuOpen)}
-                    </aside>
-
-                    <main className="min-h-screen flex-1 overflow-auto">
-                        <div className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-gray-300 bg-white/95 px-4 backdrop-blur dark:border-[#3a3a44] dark:bg-[#1a1a23]/95 md:hidden">
+                        {brand(sidebarCollapsed)}
+                        {!sidebarCollapsed && (
                             <button
                                 type="button"
-                                onClick={() => setMobileMenuOpen(true)}
-                                className="cursor-pointer rounded-md p-1.5 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-[#adadb8] dark:hover:bg-[#2e2e38] dark:hover:text-[#efeff1]"
-                                aria-label="메뉴 열기"
+                                onClick={toggleSidebar}
+                                className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md text-text-muted transition-colors hover:bg-card hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                aria-label="사이드바 접기"
                             >
-                                <Menu className="h-5 w-5" />
+                                <PanelLeftClose className="h-[18px] w-[18px]" aria-hidden="true" />
                             </button>
-                            <span className="text-sm font-bold text-gray-900 dark:text-[#efeff1]">어드민</span>
-                            <a
-                                href="https://ohbang-it.kr"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title="사이트 바로가기"
-                                className="cursor-pointer rounded-md p-1.5 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-[#adadb8] dark:hover:bg-[#2e2e38] dark:hover:text-[#efeff1]"
+                        )}
+                    </div>
+                    {navigation(sidebarCollapsed)}
+                    {sidebarCollapsed && (
+                        <button
+                            type="button"
+                            onClick={toggleSidebar}
+                            className="mx-auto mb-3 flex h-10 w-10 cursor-pointer items-center justify-center rounded-md text-text-muted transition-colors hover:bg-card hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            aria-label="사이드바 펼치기"
+                        >
+                            <PanelLeftOpen className="h-[18px] w-[18px]" aria-hidden="true" />
+                        </button>
+                    )}
+                    {footerActions(sidebarCollapsed)}
+                </aside>
+
+                <Dialog.Root open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                    <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between border-b border-border bg-bg-secondary/95 px-4 backdrop-blur lg:hidden">
+                        <Dialog.Trigger asChild>
+                            <button
+                                type="button"
+                                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-md text-text-muted hover:bg-card hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                aria-label="관리 메뉴 열기"
                             >
-                                <ExternalLink className="h-4 w-4" />
-                            </a>
-                        </div>
-                        <div className="mx-auto max-w-5xl px-4 py-6 md:px-6 md:py-8">{children}</div>
-                    </main>
-                </div>
-            </AdminToastProvider>
-        </SidebarContext.Provider>
+                                <Menu className="h-5 w-5" aria-hidden="true" />
+                            </button>
+                        </Dialog.Trigger>
+                        {brand(false)}
+                        <a
+                            href="https://ohbang-it.kr"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex h-11 w-11 items-center justify-center rounded-md text-text-muted hover:bg-card hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            aria-label="서비스로 이동"
+                        >
+                            <ExternalLink className="h-[18px] w-[18px]" aria-hidden="true" />
+                        </a>
+                    </header>
+                    <Dialog.Portal>
+                        <Dialog.Overlay className="fixed inset-0 z-40 bg-bg/80 backdrop-blur-sm data-[state=closed]:opacity-0 data-[state=open]:opacity-100" />
+                        <Dialog.Content className="fixed inset-y-0 left-0 z-50 flex w-[min(18rem,calc(100vw-2rem))] flex-col border-r border-border bg-bg-secondary shadow-modal-center focus:outline-none data-[state=closed]:-translate-x-full data-[state=open]:translate-x-0 data-[state=closed]:opacity-0 data-[state=open]:opacity-100">
+                            <Dialog.Title className="sr-only">관리 메뉴</Dialog.Title>
+                            <div className="flex min-h-20 items-center justify-between border-b border-border px-5">
+                                {brand(false)}
+                                <Dialog.Close asChild>
+                                    <button
+                                        type="button"
+                                        className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md text-text-muted hover:bg-card hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                        aria-label="관리 메뉴 닫기"
+                                    >
+                                        <X className="h-5 w-5" aria-hidden="true" />
+                                    </button>
+                                </Dialog.Close>
+                            </div>
+                            {navigation(false)}
+                            {footerActions(false)}
+                        </Dialog.Content>
+                    </Dialog.Portal>
+                </Dialog.Root>
+
+                <main id="main-content" className="min-h-[calc(100vh-4rem)] min-w-0 flex-1 bg-bg lg:min-h-screen">
+                    <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8 xl:px-10">{children}</div>
+                </main>
+            </div>
+        </AdminToastProvider>
     )
 }

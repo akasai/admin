@@ -1,25 +1,21 @@
-import type { StreamerItem } from '../../types'
+import type { BroadcastType, ParticipantRole, StreamerItem } from '../../types'
 
 export interface ParticipantDraft {
-    name: string
-    streamerId?: number
-    isHost: boolean
+    streamerId: number
+    role: ParticipantRole
+    isBroadcasting: boolean
 }
 
 export interface BroadcastFormValues {
     title: string
+    broadcastType: BroadcastType
+    categoryId: string
     startDate: string
     startTime: string
-    isUndecidedTime: boolean
-    broadcastType: string
-    categoryId: string
-    tagsInput: string
+    isTimeUndecided: boolean
+    previousBroadcastId: string
     isVisible: boolean
-    isDrops: boolean
-    isChzzkSupport: boolean
     participants: ParticipantDraft[]
-    sourceUrl: string
-    sourceImageUrl: string
 }
 
 export interface BroadcastFormModalProps {

@@ -31,38 +31,85 @@ function buildAdminHeaders(): Record<string, string> {
     return { 'x-api-key': key }
 }
 
-interface ApiErrorResponse {
-    error: {
-        code: string
-        message: string
-        details?: { field: string; reason: string }[]
-    }
+export interface ApiErrorDetail {
+    field: string
+    reason: string
 }
 
 export class ApiError extends Error {
     readonly code: string
     readonly status: number
-    readonly details?: { field: string; reason: string }[]
+    readonly details?: ApiErrorDetail[]
+    readonly currentVersion?: number
 
-    constructor({ code, message, status, details }: { code: string; message: string; status: number; details?: { field: string; reason: string }[] }) {
+    constructor({
+        code,
+        message,
+        status,
+        details,
+        currentVersion,
+    }: {
+        code: string
+        message: string
+        status: number
+        details?: ApiErrorDetail[]
+        currentVersion?: number
+    }) {
         super(message)
         this.name = 'ApiError'
         this.code = code
         this.status = status
         this.details = details
+        this.currentVersion = currentVersion
     }
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
-        const body = await response.json().catch(() => null)
-        const errorBody = body as ApiErrorResponse | null
-        throw new ApiError({
-            code: errorBody?.error?.code ?? 'UNKNOWN_ERROR',
-            message: errorBody?.error?.message ?? `HTTP ${response.status} 오류가 발생했습니다`,
-            status: response.status,
-            details: errorBody?.error?.details,
-        })
+        const body: unknown = await response.json().catch(() => null)
+        let code = 'UNKNOWN_ERROR'
+        let message = `HTTP ${response.status} 오류가 발생했습니다`
+        let currentVersion: number | undefined
+        let details: ApiErrorDetail[] | undefined
+
+        if (typeof body === 'object' && body !== null && !Array.isArray(body)) {
+            const envelope = body as { error?: unknown; message?: unknown }
+            const errorValue = envelope.error
+            if (typeof errorValue === 'string') {
+                code = 'LEGACY_ERROR'
+                message = errorValue
+            } else if (typeof errorValue === 'object' && errorValue !== null && !Array.isArray(errorValue)) {
+                const codedError = errorValue as {
+                    code?: unknown
+                    message?: unknown
+                    currentVersion?: unknown
+                    details?: unknown
+                }
+                if (typeof codedError.code === 'string') code = codedError.code
+                if (typeof codedError.message === 'string') message = codedError.message
+                if (
+                    typeof codedError.currentVersion === 'number' &&
+                    Number.isSafeInteger(codedError.currentVersion) &&
+                    codedError.currentVersion >= 0
+                ) {
+                    currentVersion = codedError.currentVersion
+                }
+                if (Array.isArray(codedError.details)) {
+                    const parsedDetails = codedError.details.flatMap((detail): ApiErrorDetail[] => {
+                        if (typeof detail !== 'object' || detail === null || Array.isArray(detail)) return []
+                        const candidate = detail as { field?: unknown; reason?: unknown }
+                        if (typeof candidate.field !== 'string' || typeof candidate.reason !== 'string') return []
+                        return [{ field: candidate.field, reason: candidate.reason }]
+                    })
+                    if (parsedDetails.length > 0) details = parsedDetails
+                }
+            } else if (typeof envelope.message === 'string') {
+                code = 'LEGACY_ERROR'
+                message = envelope.message
+            }
+        }
+
+        throw new ApiError({ code, message, status: response.status, details, currentVersion })
     }
     if (response.status === 204) {
         return null as T

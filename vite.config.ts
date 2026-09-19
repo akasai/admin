@@ -6,9 +6,13 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
     plugins: [react(), tailwindcss()],
     resolve: {
+        dedupe: ['react', 'react-dom'],
         alias: {
             '@': path.resolve(__dirname, './src'),
         },
+    },
+    optimizeDeps: {
+        entries: ['index.html', 'src/**/*.{ts,tsx}'],
     },
     server: {
         host: '0.0.0.0',

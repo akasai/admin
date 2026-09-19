@@ -1,342 +1,284 @@
-import { useMemo, useState } from 'react'
-import dayjs from 'dayjs'
-import { Clock, ExternalLink, Gift, ImageIcon, Link, Tag, Type, X, Zap } from 'lucide-react'
-import type { BroadcastFormModalProps, BroadcastFormValues } from './types'
-import { BROADCAST_TYPE_PRESETS, HOUR_OPTIONS, MINUTE_OPTIONS, getBroadcastTypeBadgeClass, parseTags } from './utils'
-import { cn } from '../../lib/cn'
-import { inputClass, selectClass } from '../../constants/styles'
+/* Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V4 */
+import { ChevronDown, X } from 'lucide-react'
+import { Popover } from 'radix-ui'
+import { useMemo, useRef, useState } from 'react'
 import { ModalOverlay } from '../ModalOverlay'
-import { CategorySelector } from './CategorySelector'
-import { ParticipantManager } from './ParticipantManager'
+import { Button } from '../ui/Button'
+import {
+    BroadcastParticipantPicker,
+    BroadcastParticipantRow,
+    BroadcastPreviousField,
+    BroadcastScheduleFields,
+    BroadcastTitleField,
+    BroadcastTypeCategoryFields,
+    BroadcastVisibilityField,
+} from './BroadcastFormFields'
+import type { BroadcastFormModalProps, BroadcastFormValues, ParticipantDraft } from './types'
 
-export function BroadcastFormModal({ title, submitLabel, initialValues, pending, categories, streamers, onClose, onSubmit }: BroadcastFormModalProps) {
+export function BroadcastFormModal({
+    title,
+    submitLabel,
+    initialValues,
+    pending,
+    categories,
+    streamers,
+    onClose,
+    onSubmit,
+}: BroadcastFormModalProps) {
     const [values, setValues] = useState<BroadcastFormValues>(initialValues)
     const [error, setError] = useState<string | null>(null)
+    const nextParticipantKey = useRef(initialValues.participants.length)
+    const [participantKeys, setParticipantKeys] = useState(() => initialValues.participants.map((_, index) => `participant-${index}`))
+    const [replacingParticipantKey, setReplacingParticipantKey] = useState<string | null>(null)
+    const participantSearchRef = useRef<HTMLInputElement>(null)
+    const participantOptions = useMemo(
+        () =>
+            streamers.map((streamer) => {
+                const preferredChannel =
+                    streamer.channels.find((channel) => channel.isPrimary) ??
+                    streamer.channels.find((channel) => channel.isActive) ??
+                    streamer.channels[0]
+                return {
+                    id: String(streamer.id),
+                    name: streamer.name,
+                    keywords: streamer.channels.flatMap((channel) => [channel.channelName, channel.externalChannelId]),
+                    metadata: !streamer.isActive
+                        ? '비활성'
+                        : preferredChannel === undefined
+                          ? '채널 없음'
+                          : preferredChannel.channelName === streamer.name
+                            ? null
+                            : preferredChannel.channelName,
+                }
+            }),
+        [streamers],
+    )
+    const selectedParticipantIds = useMemo(
+        () => new Set(values.participants.map((participant) => String(participant.streamerId))),
+        [values.participants],
+    )
 
-    const streamersById = useMemo(() => new Map(streamers.map((streamer) => [streamer.id, streamer])), [streamers])
-
-    const affiliationTagPresets = useMemo(() => {
-        const names = new Set<string>()
-        for (const participant of values.participants) {
-            if (participant.streamerId === undefined) continue
-            const streamer = streamersById.get(participant.streamerId)
-            if (streamer === undefined) continue
-            for (const affiliation of streamer.affiliations) {
-                const name = affiliation.name.trim()
-                if (name.length > 0) names.add(name)
-            }
-        }
-        return Array.from(names)
-    }, [streamersById, values.participants])
-
-    const [hourFromStartTime, minuteFromStartTime] = values.startTime.split(':')
-    const selectedHour = HOUR_OPTIONS.includes(hourFromStartTime) ? hourFromStartTime : '00'
-    const selectedMinute = minuteFromStartTime === '30' ? '30' : '00'
-
-    async function handleSubmit(): Promise<void> {
-        if (values.title.trim().length === 0) {
-            setError('제목은 필수입니다.')
+    async function submit() {
+        if (values.title.trim().length === 0 || values.startDate.length === 0) {
+            setError('제목과 시작 날짜는 필수입니다.')
             return
         }
-        if (!values.isUndecidedTime) {
-            if (values.startDate.trim().length === 0 || values.startTime.trim().length === 0) {
-                setError('시작 날짜와 시간을 확인해 주세요.')
-                return
-            }
-            if (!dayjs(`${values.startDate}T${values.startTime}`).isValid()) {
-                setError('시작 시간을 확인해 주세요.')
-                return
-            }
+        if (!values.isTimeUndecided && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(values.startTime)) {
+            setError('시작 시간을 확인해 주세요.')
+            return
         }
-
+        if (values.participants.length === 0) {
+            setError('참여자를 한 명 이상 추가해 주세요.')
+            return
+        }
+        if (new Set(values.participants.map((participant) => participant.streamerId)).size !== values.participants.length) {
+            setError('같은 스트리머를 중복으로 추가할 수 없습니다.')
+            return
+        }
         setError(null)
         await onSubmit(values)
     }
 
+    function addParticipant(streamerId: number) {
+        if (selectedParticipantIds.has(String(streamerId))) return
+        const participantKey = `participant-${nextParticipantKey.current}`
+        nextParticipantKey.current += 1
+        setParticipantKeys((previous) => [...previous, participantKey])
+        setValues((previous) => ({
+            ...previous,
+            participants: [...previous.participants, { streamerId, role: 'participant', isBroadcasting: true }],
+        }))
+    }
+
+    function updateParticipant(index: number, update: Partial<ParticipantDraft>) {
+        setValues((previous) => ({
+            ...previous,
+            participants: previous.participants.map((participant, participantIndex) =>
+                participantIndex === index ? { ...participant, ...update } : participant,
+            ),
+        }))
+    }
+
+    function removeParticipant(index: number) {
+        const participantKey = participantKeys[index]
+        setReplacingParticipantKey((current) => (current === participantKey ? null : current))
+        setParticipantKeys((previous) => previous.filter((_, participantIndex) => participantIndex !== index))
+        setValues((previous) => ({
+            ...previous,
+            participants: previous.participants.filter((_, participantIndex) => participantIndex !== index),
+        }))
+        requestAnimationFrame(() => participantSearchRef.current?.focus())
+    }
+
     return (
-        <ModalOverlay size="2xl" disabled={pending} onClose={onClose}>
-            <div className="flex items-start justify-between border-b border-[#3a3a44] px-6 py-4">
-                <div>
-                    <h2 className="text-base font-bold text-[#efeff1]">{title}</h2>
-                    <p className="mt-1 text-xs text-[#adadb8]">방송 일정 정보를 입력합니다.</p>
+        <ModalOverlay ariaLabel={title} size="2xl" disabled={pending} onClose={onClose}>
+            <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
+                <div className="min-w-0">
+                    <h2 className="text-lg font-[650] tracking-[-0.02em] text-text">{title}</h2>
+                    <p className="mt-1 text-xs text-text-muted">방송 정보와 편성을 정한 뒤 참여자를 구성합니다.</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        type="button"
-                        role="switch"
-                        aria-checked={values.isVisible}
-                        onClick={() => setValues((prev) => ({ ...prev, isVisible: !prev.isVisible }))}
-                        disabled={pending}
-                        className="cursor-pointer inline-flex items-center gap-2 rounded-full border border-[#3a3a44] bg-[#26262e] px-2 py-1 text-xs font-medium text-[#efeff1] disabled:opacity-50"
-                    >
-                        <span className="text-[#adadb8]">유저 웹 노출</span>
-                        <span
-                            className={cn(
-                                'relative inline-flex h-5 w-9 items-center rounded-full transition',
-                                values.isVisible ? 'bg-emerald-500/80' : 'bg-[#4b4b57]',
-                            )}
-                        >
-                            <span
-                                className={cn(
-                                    'inline-block h-4 w-4 rounded-full bg-white transition',
-                                    values.isVisible ? 'translate-x-4' : 'translate-x-0.5',
-                                )}
-                            />
-                        </span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        disabled={pending}
-                        className="cursor-pointer rounded-lg border border-[#3a3a44] p-1.5 text-[#adadb8] transition hover:bg-[#26262e] disabled:opacity-50"
-                        aria-label="닫기"
-                    >
-                        <X className="h-4 w-4" />
-                    </button>
-                </div>
+                <Button type="button" variant="ghost" size="icon" onClick={onClose} disabled={pending} aria-label="닫기">
+                    <X className="h-4 w-4" aria-hidden="true" />
+                </Button>
             </div>
 
-            <div className="max-h-[68vh] space-y-4 overflow-auto px-6 py-4">
-                <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                        <label className="flex items-center gap-1.5 text-xs font-medium text-[#adadb8]">
-                            <ImageIcon className="h-3.5 w-3.5" /> 출처 이미지
-                            {values.sourceImageUrl.trim().length > 0 && (
-                                <a href={values.sourceImageUrl} target="_blank" rel="noopener noreferrer" className="text-[#848494] hover:text-blue-300"><ExternalLink className="h-3 w-3" /></a>
-                            )}
-                        </label>
-                        <input type="text" value={values.sourceImageUrl} onChange={(event) => setValues((prev) => ({ ...prev, sourceImageUrl: event.target.value }))} className={inputClass} placeholder="URL" />
-                    </div>
-                    <div className="space-y-1">
-                        <label className="flex items-center gap-1.5 text-xs font-medium text-[#adadb8]">
-                            <Link className="h-3.5 w-3.5" /> 출처 링크
-                            {values.sourceUrl.trim().length > 0 && (
-                                <a href={values.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-[#848494] hover:text-blue-300"><ExternalLink className="h-3 w-3" /></a>
-                            )}
-                        </label>
-                        <input type="text" value={values.sourceUrl} onChange={(event) => setValues((prev) => ({ ...prev, sourceUrl: event.target.value }))} className={inputClass} placeholder="URL" />
-                    </div>
-                </div>
-
-                <div className="space-y-1">
-                    <label className="flex items-center gap-1.5 text-xs font-medium text-[#adadb8]">
-                        <Type className="h-3.5 w-3.5" /> 제목 <span className="text-red-400">*</span>
-                    </label>
-                    <input
-                        type="text"
+            <div className="max-h-[calc(100dvh-12rem)] space-y-6 overflow-y-auto px-5 py-5 sm:px-6">
+                <section className="space-y-4" aria-labelledby="broadcast-info-heading">
+                    <h3 id="broadcast-info-heading" className="text-sm font-semibold text-text">
+                        방송 정보
+                    </h3>
+                    <BroadcastTitleField
                         value={values.title}
-                        onChange={(event) => setValues((prev) => ({ ...prev, title: event.target.value }))}
-                        className={inputClass}
-                        placeholder="방송 제목"
+                        onChange={(value) => setValues((previous) => ({ ...previous, title: value }))}
                         autoFocus
+                        invalid={error !== null && values.title.trim().length === 0}
                     />
-                </div>
+                    <BroadcastTypeCategoryFields
+                        broadcastType={values.broadcastType}
+                        onBroadcastTypeChange={(broadcastType) => setValues((previous) => ({ ...previous, broadcastType }))}
+                        categories={categories}
+                        categoryId={values.categoryId}
+                        onCategoryChange={(categoryId) => setValues((previous) => ({ ...previous, categoryId }))}
+                    />
+                </section>
 
-                <div className="space-y-2">
-                    <label className="flex items-center gap-1.5 text-xs font-medium text-[#adadb8]"><Tag className="h-3.5 w-3.5" /> 타입 / 속성</label>
-                    <div className="flex flex-wrap gap-1.5">
-                        {BROADCAST_TYPE_PRESETS.map((preset) => {
-                            const selected = values.broadcastType === preset
+                <section className="space-y-4 border-t border-border pt-5" aria-labelledby="broadcast-time-heading">
+                    <h3 id="broadcast-time-heading" className="text-sm font-semibold text-text">
+                        편성
+                    </h3>
+                    <BroadcastScheduleFields
+                        startDate={values.startDate}
+                        startTime={values.isTimeUndecided ? null : values.startTime}
+                        onStartDateChange={(startDate) => setValues((previous) => ({ ...previous, startDate }))}
+                        onStartTimeChange={(startTime) =>
+                            setValues((previous) =>
+                                startTime === null
+                                    ? { ...previous, isTimeUndecided: true }
+                                    : { ...previous, startTime, isTimeUndecided: false },
+                            )
+                        }
+                    />
+                </section>
+
+                <section className="border-t border-border pt-5" aria-labelledby="participant-heading">
+                    <div className="mb-3">
+                        <h3 id="participant-heading" className="text-sm font-semibold text-text">
+                            참여자 <span className="ml-1 text-text-muted">{values.participants.length}명</span>
+                        </h3>
+                        <p className="mt-1 text-xs text-text-muted">
+                            검색으로 추가하고, 이름을 눌러 교체합니다. 역할과 송출은 바로 변경할 수 있습니다.
+                        </p>
+                    </div>
+                    <div className="mb-4">
+                        <BroadcastParticipantPicker
+                            options={participantOptions}
+                            selectedIds={selectedParticipantIds}
+                            onChange={(streamerId) => addParticipant(Number(streamerId))}
+                            inputRef={participantSearchRef}
+                        />
+                    </div>
+
+                    <div className="space-y-3">
+                        {values.participants.length === 0 && (
+                            <p className="rounded-md border border-dashed border-border px-4 py-6 text-center text-xs text-text-dim">
+                                위에서 스트리머를 검색해 참여자를 추가하세요.
+                            </p>
+                        )}
+                        {values.participants.map((participant, index) => {
+                            const participantKey = participantKeys[index]
+                            const selectedStreamer = streamers.find((streamer) => streamer.id === participant.streamerId)
+                            const selectedName = selectedStreamer?.name ?? `스트리머 #${participant.streamerId}`
+
                             return (
-                                <button
-                                    key={preset}
-                                    type="button"
-                                    onClick={() => {
-                                        setValues((prev) => ({ ...prev, broadcastType: selected ? '' : preset }))
-                                    }}
-                                    className={cn(
-                                        'cursor-pointer rounded-full border px-2.5 py-1 text-xs font-semibold transition',
-                                        selected
-                                            ? getBroadcastTypeBadgeClass(preset)
-                                            : 'border-[#3a3a44] bg-[#26262e] text-[#adadb8] hover:bg-[#32323d]',
-                                    )}
-                                >
-                                    {preset}
-                                </button>
+                                <BroadcastParticipantRow
+                                    key={participantKey}
+                                    name={selectedName}
+                                    role={participant.role}
+                                    isBroadcasting={participant.isBroadcasting}
+                                    selector={
+                                        <Popover.Root
+                                            open={replacingParticipantKey === participantKey}
+                                            onOpenChange={(open) => setReplacingParticipantKey(open ? participantKey : null)}
+                                        >
+                                            <Popover.Trigger asChild>
+                                                <button
+                                                    type="button"
+                                                    aria-label={`${selectedName} 교체`}
+                                                    className="flex min-h-10 min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 text-left text-sm font-semibold text-text hover:bg-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                                >
+                                                    <span className="min-w-0 flex-1 truncate">{selectedName}</span>
+                                                    <ChevronDown className="h-4 w-4 shrink-0 text-text-dim" aria-hidden="true" />
+                                                </button>
+                                            </Popover.Trigger>
+                                            <Popover.Portal>
+                                                <Popover.Content
+                                                    aria-label={`${selectedName} 교체 검색`}
+                                                    align="start"
+                                                    sideOffset={8}
+                                                    collisionPadding={16}
+                                                    className="z-[70] max-h-[var(--radix-popover-content-available-height)] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain rounded-lg border border-border bg-bg-secondary p-3 text-text shadow-modal-center outline-none"
+                                                >
+                                                    <BroadcastParticipantPicker
+                                                        options={participantOptions}
+                                                        selectedIds={selectedParticipantIds}
+                                                        label="교체할 스트리머 검색"
+                                                        onChange={(streamerId) => {
+                                                            updateParticipant(index, { streamerId: Number(streamerId) })
+                                                            setReplacingParticipantKey(null)
+                                                        }}
+                                                    />
+                                                </Popover.Content>
+                                            </Popover.Portal>
+                                        </Popover.Root>
+                                    }
+                                    onRoleChange={(role) => updateParticipant(index, { role })}
+                                    onBroadcastingChange={(isBroadcasting) => updateParticipant(index, { isBroadcasting })}
+                                    onRemove={() => removeParticipant(index)}
+                                />
                             )
                         })}
-                        <span className="mx-0.5 self-center text-[#3a3a44]">|</span>
-                        <button
-                            type="button"
-                            onClick={() => setValues((prev) => ({ ...prev, isChzzkSupport: !prev.isChzzkSupport }))}
-                            className={cn(
-                                'inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition',
-                                values.isChzzkSupport
-                                    ? 'border-orange-500/40 bg-orange-500/15 text-orange-300'
-                                    : 'border-[#3a3a44] bg-[#26262e] text-[#adadb8] hover:bg-[#32323d]',
-                            )}
-                        >
-                            <Zap className="h-3 w-3" /> 제작지원
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setValues((prev) => ({ ...prev, isDrops: !prev.isDrops }))}
-                            className={cn(
-                                'inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition',
-                                values.isDrops
-                                    ? 'border-blue-500/40 bg-blue-500/15 text-blue-300'
-                                    : 'border-[#3a3a44] bg-[#26262e] text-[#adadb8] hover:bg-[#32323d]',
-                            )}
-                        >
-                            <Gift className="h-3 w-3" /> 드롭스
-                        </button>
                     </div>
-                </div>
+                </section>
 
-                <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                        <label className="flex items-center gap-1.5 text-xs font-medium text-[#adadb8]">
-                            <Clock className="h-3.5 w-3.5" /> 시간
-                        </label>
-                        <button
-                            type="button"
-                            onClick={() => setValues((prev) => ({ ...prev, isUndecidedTime: !prev.isUndecidedTime }))}
-                            className={cn(
-                                'cursor-pointer rounded-full border px-2.5 py-1 text-[11px] font-semibold transition',
-                                values.isUndecidedTime
-                                    ? 'border-amber-500/40 bg-amber-500/15 text-amber-300'
-                                    : 'border-[#3a3a44] bg-[#26262e] text-[#adadb8] hover:bg-[#32323d]',
-                            )}
-                        >
-                            미정
-                        </button>
+                <section className="space-y-4 border-t border-border pt-5" aria-labelledby="broadcast-settings-heading">
+                    <h3 id="broadcast-settings-heading" className="text-sm font-semibold text-text">
+                        추가 설정
+                    </h3>
+                    <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+                        <BroadcastPreviousField
+                            value={values.previousBroadcastId}
+                            onChange={(previousBroadcastId) => setValues((previous) => ({ ...previous, previousBroadcastId }))}
+                        />
+                        <BroadcastVisibilityField
+                            visible={values.isVisible}
+                            onChange={(isVisible) => setValues((previous) => ({ ...previous, isVisible }))}
+                        />
                     </div>
-                    {values.isUndecidedTime ? (
-                        <div className="flex items-center justify-center rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5 py-3 text-xs text-amber-300">
-                            시작 시간 미정
-                        </div>
-                    ) : (
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="date"
-                                value={values.startDate}
-                                onChange={(event) => setValues((prev) => ({ ...prev, startDate: event.target.value }))}
-                                className={cn(inputClass, 'w-auto flex-1')}
-                            />
-                            <select
-                                value={selectedHour}
-                                onChange={(event) => {
-                                    const hour = event.target.value
-                                    setValues((prev) => ({ ...prev, startTime: `${hour}:${selectedMinute}` }))
-                                }}
-                                className={cn(selectClass, 'w-auto')}
-                            >
-                                {HOUR_OPTIONS.map((hour) => (
-                                    <option key={hour} value={hour}>
-                                        {hour}시
-                                    </option>
-                                ))}
-                            </select>
-                            <span className="text-sm font-bold text-[#848494]">:</span>
-                            <select
-                                value={selectedMinute}
-                                onChange={(event) => {
-                                    const minute = event.target.value
-                                    setValues((prev) => ({ ...prev, startTime: `${selectedHour}:${minute}` }))
-                                }}
-                                className={cn(selectClass, 'w-auto')}
-                            >
-                                {MINUTE_OPTIONS.map((minute) => (
-                                    <option key={minute} value={minute}>
-                                        {minute}분
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-                </div>
+                </section>
 
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <CategorySelector
-                        categories={categories}
-                        selectedId={values.categoryId}
-                        onChange={(categoryId) => {
-                            setValues((prev) => ({ ...prev, categoryId }))
-                        }}
-                    />
-
-                    <div className="space-y-1">
-                        <label className="flex items-center gap-1.5 text-xs font-medium text-[#adadb8]"><Tag className="h-3.5 w-3.5" /> 태그</label>
-                        <div className="relative">
-                            <input
-                                type="text"
-                                value={values.tagsInput}
-                                onChange={(event) => setValues((prev) => ({ ...prev, tagsInput: event.target.value }))}
-                                className={cn(inputClass, values.tagsInput.length > 0 ? 'pr-8' : '')}
-                                placeholder="예: 인챈트, 허니즈"
-                            />
-                            {values.tagsInput.length > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={() => setValues((prev) => ({ ...prev, tagsInput: '' }))}
-                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 cursor-pointer rounded-full p-0.5 text-[#7e7e8c] transition hover:bg-[#3a3a44] hover:text-[#efeff1]"
-                                    aria-label="태그 초기화"
-                                >
-                                    <X className="h-3.5 w-3.5" />
-                                </button>
-                            )}
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                            {affiliationTagPresets.map((preset) => {
-                                const currentTags = parseTags(values.tagsInput)
-                                const active = currentTags.includes(preset)
-                                return (
-                                    <button
-                                        key={preset}
-                                        type="button"
-                                        onClick={() => {
-                                            const nextTags = active
-                                                ? currentTags.filter((tag) => tag !== preset)
-                                                : [...currentTags, preset]
-                                            setValues((prev) => ({ ...prev, tagsInput: nextTags.join(', ') }))
-                                        }}
-                                        className={cn(
-                                            'cursor-pointer rounded-full border px-2.5 py-1 text-xs font-semibold transition',
-                                            active
-                                                ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
-                                                : 'border-[#3a3a44] bg-[#26262e] text-[#adadb8] hover:bg-[#32323d]',
-                                        )}
-                                    >
-                                        #{preset}
-                                    </button>
-                                )
-                            })}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="border-t border-[#3a3a44]" />
-
-                <ParticipantManager
-                    participants={values.participants}
-                    streamers={streamers}
-                    onChange={(participants) => {
-                        setValues((prev) => ({ ...prev, participants }))
-                    }}
-                />
-
-                {error !== null && <p className="text-xs text-red-400">{error}</p>}
+                {error !== null && (
+                    <p
+                        role="alert"
+                        className="rounded-md border border-live/30 bg-[var(--color-danger-soft)] px-3 py-2 text-xs text-[var(--color-danger)]"
+                    >
+                        {error}
+                    </p>
+                )}
             </div>
 
-            <div className="flex gap-2 border-t border-[#3a3a44] px-6 py-4">
-                <button
+            <div className="flex gap-2 border-t border-border bg-bg px-5 py-4 sm:justify-end sm:px-6">
+                <Button
                     type="button"
+                    variant="outline"
                     onClick={onClose}
                     disabled={pending}
-                    className="cursor-pointer flex-1 rounded-xl border border-[#3a3a44] py-2.5 text-sm font-medium text-[#adadb8] transition hover:bg-[#26262e] disabled:opacity-50"
+                    className="min-w-0 flex-1 sm:flex-none sm:px-6"
                 >
                     취소
-                </button>
-                <button
-                    type="button"
-                    onClick={() => {
-                        void handleSubmit()
-                    }}
-                    disabled={pending}
-                    className="cursor-pointer flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
-                >
+                </Button>
+                <Button type="button" onClick={() => void submit()} loading={pending} className="min-w-0 flex-1 sm:flex-none sm:px-6">
                     {pending ? '저장 중...' : submitLabel}
-                </button>
+                </Button>
             </div>
         </ModalOverlay>
     )

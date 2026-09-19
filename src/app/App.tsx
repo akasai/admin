@@ -1,9 +1,12 @@
+import { Route, Routes } from 'react-router-dom'
 import AdminRoutes from './AdminRoutes'
 
 function App() {
     return (
         <div className="min-h-screen bg-bg">
-            <AdminRoutes />
+            <Routes>
+                <Route path="/*" element={<AdminRoutes />} />
+            </Routes>
         </div>
     )
 }

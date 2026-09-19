@@ -1,34 +1,24 @@
 import dayjs from 'dayjs'
-import type { BroadcastItem, BroadcastParticipantInput, CreateBroadcastRequest, ReviewBroadcastItem, UpdateBroadcastRequest } from '../../types'
+import type { BroadcastItem, BroadcastParticipantInput, CreateBroadcastRequest, UpdateBroadcastRequest } from '../../types'
 import type { BroadcastFormValues } from './types'
 
-export const KOREAN_DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토']
-export const WEEKDAY_MON_TO_SUN = ['월', '화', '수', '목', '금', '토', '일']
-export const BROADCAST_TYPE_PRESETS = ['방송', '합방', '콘텐츠', '내전'] as const
-export const HOUR_OPTIONS = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, '0'))
-export const MINUTE_OPTIONS = ['00', '30'] as const
+export const BROADCAST_TYPES = ['collab', 'tournament', 'internal_match', 'game', 'talk', 'content', 'other'] as const
+export const PARTICIPANT_ROLES = ['host', 'participant', 'guest'] as const
 
-export function getBroadcastTypeBadgeClass(type: string | null): string {
-    if (type === '방송') return 'border-green-500/40 bg-green-500/15 text-green-300'
-    if (type === '합방') return 'border-purple-500/40 bg-purple-500/15 text-purple-300'
-    if (type === '콘텐츠') return 'border-blue-500/40 bg-blue-500/15 text-blue-300'
-    if (type === '내전') return 'border-orange-500/40 bg-orange-500/15 text-orange-300'
-    return 'border-[#4a4a58] bg-[#2a2a34] text-[#b5b5c0]'
+export const BROADCAST_TYPE_LABELS: Record<(typeof BROADCAST_TYPES)[number], string> = {
+    collab: '합방',
+    tournament: '대회',
+    internal_match: '내전',
+    game: '게임',
+    talk: '토크',
+    content: '콘텐츠',
+    other: '기타',
 }
 
-export function getInitialStartTime(date: dayjs.Dayjs): { date: string; time: string } {
-    const currentHour = dayjs().hour()
-    return {
-        date: date.format('YYYY-MM-DD'),
-        time: `${String(currentHour).padStart(2, '0')}:00`,
-    }
-}
-
-export function parseTags(tagsInput: string): string[] {
-    return tagsInput
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter((tag) => tag.length > 0)
+export const PARTICIPANT_ROLE_LABELS: Record<(typeof PARTICIPANT_ROLES)[number], string> = {
+    host: '진행자',
+    participant: '참여자',
+    guest: '게스트',
 }
 
 export function toDateParam(date: dayjs.Dayjs): string {
@@ -37,114 +27,65 @@ export function toDateParam(date: dayjs.Dayjs): string {
 
 export function getWeekStartMonday(date: dayjs.Dayjs): dayjs.Dayjs {
     const day = date.day()
-    const diff = day === 0 ? -6 : 1 - day
-    return date.add(diff, 'day').startOf('day')
+    return date.add(day === 0 ? -6 : 1 - day, 'day').startOf('day')
 }
 
-export function getWeekDatesMonday(date: dayjs.Dayjs): dayjs.Dayjs[] {
-    const weekStart = getWeekStartMonday(date)
-    return Array.from({ length: 7 }, (_, index) => weekStart.add(index, 'day'))
+export function getDateRangeText(selectedDate: dayjs.Dayjs): string {
+    const start = getWeekStartMonday(selectedDate)
+    return `${start.format('YYYY.M.D')} - ${start.add(6, 'day').format('M.D')}`
 }
 
-export function getDateRangeText(view: 'daily' | 'weekly', selectedDate: dayjs.Dayjs): string {
-    if (view === 'daily') {
-        const dayName = KOREAN_DAY_NAMES[selectedDate.day()]
-        return `${selectedDate.year()}년 ${selectedDate.month() + 1}월 ${selectedDate.date()}일 (${dayName})`
+function toPayload(values: BroadcastFormValues): CreateBroadcastRequest {
+    const participants: BroadcastParticipantInput[] = values.participants.map(({ streamerId, role, isBroadcasting }) => ({
+        streamerId,
+        role,
+        isBroadcasting,
+    }))
+    const categoryId = values.categoryId.trim()
+    const previousBroadcastId = values.previousBroadcastId.trim()
+    return {
+        title: values.title.trim(),
+        broadcastType: values.broadcastType,
+        categoryId: categoryId.length === 0 ? null : Number(categoryId),
+        startDate: values.startDate,
+        startTime: values.isTimeUndecided ? null : `${values.startTime}:00`,
+        previousBroadcastId: previousBroadcastId.length === 0 ? null : Number(previousBroadcastId),
+        isVisible: values.isVisible,
+        participants,
     }
-    const weekStart = getWeekStartMonday(selectedDate)
-    const weekEnd = weekStart.add(6, 'day')
-    return `${weekStart.format('YYYY.M.D')} - ${weekEnd.format('M.D')}`
 }
 
 export function toCreatePayload(values: BroadcastFormValues): CreateBroadcastRequest {
-    const parsed = dayjs(`${values.startDate}T${values.isUndecidedTime ? '00:00' : values.startTime}`)
-    const participants: BroadcastParticipantInput[] = values.participants.map((item) => ({
-        name: item.name,
-        streamerId: item.streamerId,
-        isHost: item.isHost,
-    }))
-
-    return {
-        title: values.title.trim(),
-        startTime: parsed.isValid() ? parsed.toISOString() : null,
-        isTimeUndecided: values.isUndecidedTime,
-        broadcastType: values.broadcastType.trim() || undefined,
-        categoryId: values.categoryId.length > 0 ? Number(values.categoryId) : undefined,
-        tags: parseTags(values.tagsInput),
-        isVisible: values.isVisible,
-        isDrops: values.isDrops,
-        isChzzkSupport: values.isChzzkSupport,
-        participants,
-        sourceUrl: values.sourceUrl.trim() || undefined,
-        sourceImageUrl: values.sourceImageUrl.trim() || undefined,
-    }
+    return toPayload(values)
 }
 
 export function toUpdatePayload(values: BroadcastFormValues): UpdateBroadcastRequest {
-    const parsed = dayjs(`${values.startDate}T${values.isUndecidedTime ? '00:00' : values.startTime}`)
-    const participants: BroadcastParticipantInput[] = values.participants.map((item) => ({
-        name: item.name,
-        streamerId: item.streamerId,
-        isHost: item.isHost,
-    }))
-
-    return {
-        title: values.title.trim(),
-        startTime: parsed.isValid() ? parsed.toISOString() : null,
-        isTimeUndecided: values.isUndecidedTime,
-        broadcastType: values.broadcastType.trim() || undefined,
-        categoryId: values.categoryId.length > 0 ? Number(values.categoryId) : undefined,
-        tags: parseTags(values.tagsInput),
-        isVisible: values.isVisible,
-        isDrops: values.isDrops,
-        isChzzkSupport: values.isChzzkSupport,
-        participants,
-        sourceUrl: values.sourceUrl.trim() || undefined,
-        sourceImageUrl: values.sourceImageUrl.trim() || undefined,
-    }
+    return toPayload(values)
 }
 
-export function toFormValues(item: BroadcastItem | (BroadcastItem & { extraction?: ReviewBroadcastItem['extraction'] }) | null, selectedDate: dayjs.Dayjs): BroadcastFormValues {
+export function toFormValues(item: BroadcastItem | null, selectedDate: dayjs.Dayjs): BroadcastFormValues {
     if (item === null) {
-        const initialStart = getInitialStartTime(selectedDate)
         return {
             title: '',
-            startDate: initialStart.date,
-            startTime: initialStart.time,
-            isUndecidedTime: false,
-            broadcastType: '',
+            broadcastType: 'other',
             categoryId: '',
-            tagsInput: '',
+            startDate: toDateParam(selectedDate),
+            startTime: '19:00',
+            isTimeUndecided: false,
+            previousBroadcastId: '',
             isVisible: true,
-            isDrops: false,
-            isChzzkSupport: false,
             participants: [],
-            sourceUrl: '',
-            sourceImageUrl: '',
         }
     }
-
-    const isUndecided = item.startTime === null
-    const parsed = isUndecided ? null : dayjs(item.startTime)
-    const initialStart = getInitialStartTime(selectedDate)
-
     return {
         title: item.title,
-        startDate: parsed !== null && parsed.isValid() ? parsed.format('YYYY-MM-DD') : initialStart.date,
-        startTime: parsed !== null && parsed.isValid() ? parsed.format('HH:mm') : initialStart.time,
-        isUndecidedTime: isUndecided,
-        broadcastType: item.broadcastType ?? '',
-        categoryId: item.category?.id !== undefined ? String(item.category.id) : '',
-        tagsInput: item.tags.join(', '),
+        broadcastType: item.broadcastType,
+        categoryId: item.categoryId === null ? '' : String(item.categoryId),
+        startDate: item.startDate,
+        startTime: item.startTime?.slice(0, 5) ?? '19:00',
+        isTimeUndecided: item.startTime === null,
+        previousBroadcastId: item.previousBroadcastId === null ? '' : String(item.previousBroadcastId),
         isVisible: item.isVisible,
-        isDrops: item.isDrops,
-        isChzzkSupport: item.isChzzkSupport,
-        participants: item.streamers.map((streamer) => ({
-            name: streamer.name,
-            streamerId: streamer.streamerId ?? undefined,
-            isHost: streamer.isHost,
-        })),
-        sourceUrl: item.sourceUrl ?? '',
-        sourceImageUrl: ('extraction' in item && item.extraction?.sourceImageUrl) ? item.extraction.sourceImageUrl : (item.sourceImageUrl ?? ''),
+        participants: item.participants.map(({ streamerId, role, isBroadcasting }) => ({ streamerId, role, isBroadcasting })),
     }
 }

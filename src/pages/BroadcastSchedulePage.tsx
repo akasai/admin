@@ -1,65 +1,91 @@
-import { useMemo, useState } from 'react'
+/* Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V4 */
+/* Hallmark · macrostructure: Schedule Ledger · tone: modern-minimal · anchor hue: green */
 import dayjs from 'dayjs'
 import { Calendar, ChevronLeft, ChevronRight, EyeOff, Plus } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ConfirmModal } from '../components/ConfirmModal'
+import { ListError, ListLoading } from '../components/ListState'
 import {
-    useAdminToast,
+    BroadcastFormModal,
+    DailyView,
+    WeeklyView,
+    getDateRangeText,
+    getWeekStartMonday,
+    toCreatePayload,
+    toDateParam,
+    toFormValues,
+    toUpdatePayload,
+} from '../components/schedule'
+import type { BroadcastFormValues } from '../components/schedule'
+import { Button } from '../components/ui/Button'
+import { inputClass, panelClass } from '../constants/styles'
+import {
     useAdminSchedule,
+    useAdminToast,
     useCategories,
     useCreateBroadcast,
     useDeleteBroadcast,
-    useReviewQueue,
     useStreamers,
     useUpdateBroadcast,
 } from '../hooks'
-import type { BroadcastItem, ReviewBroadcastItem, ScheduleParams, ScheduleResponse } from '../types'
-import { getErrorMessage } from '../utils/error'
 import { cn } from '../lib/cn'
-import { panelClass } from '../constants/styles'
-import { ConfirmModal } from '../components/ConfirmModal'
-import { ListEmpty, ListError, ListLoading } from '../components/ListState'
-import { BroadcastFormModal, DailyView, ReviewView, WeeklyView, toCreatePayload, toFormValues, toUpdatePayload, getDateRangeText, toDateParam } from '../components/schedule'
-import type { BroadcastFormValues } from '../components/schedule'
+import type { BroadcastItem, ScheduleDay } from '../types'
+import { getErrorMessage } from '../utils/error'
 
 export default function BroadcastSchedulePage() {
     const { addToast } = useAdminToast()
-
-    const [view, setView] = useState<'daily' | 'weekly' | 'review'>('daily')
+    const [view, setView] = useState<'daily' | 'weekly'>('weekly')
     const [selectedDate, setSelectedDate] = useState(dayjs())
     const [hiddenOnly, setHiddenOnly] = useState(false)
     const [creating, setCreating] = useState(false)
-    const [editingItem, setEditingItem] = useState<BroadcastItem | ReviewBroadcastItem | null>(null)
-    const [deletingItem, setDeletingItem] = useState<BroadcastItem | ReviewBroadcastItem | null>(null)
-
-    const scheduleView = view === 'review' ? 'daily' : view
-    const scheduleParams: ScheduleParams = useMemo(
-        () => ({
-            view: scheduleView,
-            date: toDateParam(selectedDate),
-        }),
-        [scheduleView, selectedDate],
-    )
-
-    const { data, isLoading, isError, refetch } = useAdminSchedule(scheduleParams)
-    const { data: reviewData } = useReviewQueue()
-    const reviewCount = reviewData?.totalCount ?? 0
-    const { data: categories = [] } = useCategories()
-    const { data: streamersData } = useStreamers({ size: 1000 })
+    const [editingItem, setEditingItem] = useState<BroadcastItem | null>(null)
+    const [deletingItem, setDeletingItem] = useState<BroadcastItem | null>(null)
+    const { data, isLoading: isScheduleLoading, isError: isScheduleError, refetch: refetchSchedule } = useAdminSchedule()
+    const {
+        data: categories = [],
+        isLoading: isCategoriesLoading,
+        isError: isCategoriesError,
+        refetch: refetchCategories,
+    } = useCategories()
+    const { data: streamersData, isLoading: isStreamersLoading, isError: isStreamersError, refetch: refetchStreamers } = useStreamers()
     const createMutation = useCreateBroadcast()
     const updateMutation = useUpdateBroadcast()
     const deleteMutation = useDeleteBroadcast()
+    const categoryOptions = useMemo(() => categories.map(({ id, name }) => ({ id, name })), [categories])
+    const categoryNames = useMemo(() => new Map(categories.map(({ id, name }) => [id, name])), [categories])
     const streamers = streamersData?.items ?? []
-
-    const categoryOptions = useMemo(() => categories.map((category) => ({ id: category.id, name: category.name })), [categories])
-
-    function moveDate(direction: 1 | -1): void {
-        if (view === 'daily') {
-            setSelectedDate((prev) => prev.add(direction, 'day'))
-            return
+    const isLoading = isScheduleLoading || isCategoriesLoading || isStreamersLoading
+    const isError = isScheduleError || isCategoriesError || isStreamersError
+    const weekDays = useMemo(
+        () => Array.from({ length: 7 }, (_, index) => toDateParam(getWeekStartMonday(selectedDate).add(index, 'day'))),
+        [selectedDate],
+    )
+    const selectedDateParam = toDateParam(selectedDate)
+    const periodSummary = useMemo(() => {
+        const relevantDates = view === 'weekly' ? new Set(weekDays) : new Set([selectedDateParam])
+        const items = (data?.items ?? []).filter((item) => relevantDates.has(item.startDate))
+        const visible = items.filter((item) => item.isVisible).length
+        return {
+            total: items.length,
+            visible,
+            hidden: items.length - visible,
+            undecided: items.filter((item) => item.startTime === null).length,
         }
-        setSelectedDate((prev) => prev.add(direction, 'week'))
+    }, [data, selectedDateParam, view, weekDays])
+    const displayedDays = useMemo<ScheduleDay[]>(
+        () =>
+            weekDays.map((date) => ({
+                date,
+                items: (data?.items ?? []).filter((item) => item.startDate === date && (!hiddenOnly || !item.isVisible)),
+            })),
+        [data, hiddenOnly, weekDays],
+    )
+    const selectedDay = displayedDays.find((day) => day.date === selectedDateParam) ?? {
+        date: selectedDateParam,
+        items: [],
     }
 
-    async function handleCreate(values: BroadcastFormValues): Promise<void> {
+    async function create(values: BroadcastFormValues) {
         try {
             await createMutation.mutateAsync(toCreatePayload(values))
             addToast({ message: '방송 일정이 추가되었습니다.', variant: 'success' })
@@ -70,9 +96,8 @@ export default function BroadcastSchedulePage() {
         }
     }
 
-    async function handleUpdate(values: BroadcastFormValues): Promise<void> {
+    async function update(values: BroadcastFormValues) {
         if (editingItem === null) return
-
         try {
             await updateMutation.mutateAsync({ id: editingItem.id, body: toUpdatePayload(values) })
             addToast({ message: '방송 일정이 수정되었습니다.', variant: 'success' })
@@ -83,7 +108,7 @@ export default function BroadcastSchedulePage() {
         }
     }
 
-    async function handleDelete(): Promise<void> {
+    async function remove() {
         if (deletingItem === null) return
         try {
             await deleteMutation.mutateAsync(deletingItem.id)
@@ -95,171 +120,215 @@ export default function BroadcastSchedulePage() {
         }
     }
 
-    function filterHidden(items: BroadcastItem[]): BroadcastItem[] {
-        if (!hiddenOnly) return items
-        return items.filter((item) => !item.isVisible)
-    }
-
-    function renderContent(schedule: ScheduleResponse | undefined) {
-        if (view === 'review') {
-            return <ReviewView onEdit={setEditingItem} onDelete={setDeletingItem} />
-        }
-        if (isLoading) return <ListLoading className="py-24" />
-        if (isError) return <ListError message="일정을 불러오는 중 오류가 발생했습니다." className="py-24" onRetry={() => { void refetch() }} />
-        if (schedule === undefined) return <ListEmpty message="일정 데이터가 없습니다." className="py-24" />
-
-        if (schedule.view === 'daily') {
-            const filtered = { ...schedule, items: filterHidden(schedule.items) }
-            const filteredPinnedGroups = schedule.pinnedGroups?.map((g) => ({ ...g, items: filterHidden(g.items) }))
-            return <DailyView data={filtered} pinnedGroups={filteredPinnedGroups} onEdit={setEditingItem} onDelete={setDeletingItem} />
-        }
-        if (schedule.view === 'weekly') {
-            const filtered = { ...schedule, days: schedule.days.map((day) => ({ ...day, items: filterHidden(day.items) })) }
-            const filteredPinnedGroups = schedule.pinnedGroups?.map((g) => ({ ...g, items: filterHidden(g.items) }))
-            return <WeeklyView selectedDate={selectedDate} data={filtered} pinnedGroups={filteredPinnedGroups} onEdit={setEditingItem} onDelete={setDeletingItem} />
-        }
-        return null
-    }
-
-    const isFormPending = createMutation.isPending || updateMutation.isPending
-
     return (
         <>
-            <div className="mb-6 flex items-start justify-between gap-3">
-                <div>
-                    <h1 className="text-xl font-bold text-[#efeff1]">일정 관리</h1>
-                    <p className="mt-1 text-sm text-[#adadb8]">방송 일정을 관리합니다</p>
+            <header className="mb-4 flex items-center justify-between gap-4 border-b border-border pb-4 sm:mb-6 sm:items-end sm:pb-6">
+                <div className="min-w-0">
+                    <p className="mb-2 hidden font-mono text-[11px] font-semibold tracking-[0.12em] text-text-dim sm:block">
+                        PROGRAMMING DATA
+                    </p>
+                    <h1 className="min-w-0 text-xl font-[650] tracking-[-0.025em] text-text [overflow-wrap:anywhere] sm:text-2xl">
+                        일정 관리
+                    </h1>
+                    <p className="mt-1.5 hidden text-sm text-text-muted sm:block">방송 일정과 참여자, 노출 상태를 관리합니다.</p>
                 </div>
-                {view !== 'review' && (
-                    <button
-                        type="button"
-                        onClick={() => setCreating(true)}
-                        className="cursor-pointer inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500"
-                    >
-                        <Plus className="h-4 w-4" />
-                        일정 추가
-                    </button>
-                )}
-            </div>
+                <Button
+                    type="button"
+                    size="lg"
+                    leftIcon={<Plus className="h-4 w-4" aria-hidden="true" />}
+                    onClick={() => setCreating(true)}
+                    disabled={isCategoriesLoading || isStreamersLoading || isCategoriesError || isStreamersError}
+                    aria-label="일정 추가"
+                    className="px-3 sm:px-5"
+                >
+                    <span className="sm:hidden">추가</span>
+                    <span className="hidden sm:inline">일정 추가</span>
+                </Button>
+            </header>
 
-            <div className={cn(panelClass, 'mb-4 flex flex-col gap-3 px-4 py-3 md:flex-row md:flex-wrap md:items-center md:justify-between')}>
-                <div className="flex items-center gap-2">
-                    <div className="inline-flex rounded-xl border border-[#3a3a44] bg-[#26262e] p-1">
-                        <button
-                            type="button"
-                            onClick={() => setView('daily')}
-                            className={cn(
-                                'cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition',
-                                view === 'daily' ? 'bg-blue-600 text-white' : 'text-[#adadb8] hover:bg-[#32323d]',
-                            )}
-                        >
-                            일간
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setView('weekly')}
-                            className={cn(
-                                'cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition',
-                                view === 'weekly' ? 'bg-blue-600 text-white' : 'text-[#adadb8] hover:bg-[#32323d]',
-                            )}
-                        >
-                            주간
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setView('review')}
-                            className={cn(
-                                'cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition',
-                                view === 'review' ? 'bg-blue-600 text-white' : 'text-[#adadb8] hover:bg-[#32323d]',
-                            )}
-                        >
-                            검수
-                            {reviewCount > 0 && (
-                                <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                                    {reviewCount}
-                                </span>
-                            )}
-                        </button>
-                    </div>
-
-                    {view !== 'review' && (
-                        <div className="ml-1 flex items-center gap-1.5 text-[#efeff1]">
-                            <Calendar className="h-4 w-4 text-[#848494]" />
-                            <span className="text-sm font-semibold">{getDateRangeText(scheduleView, selectedDate)}</span>
+            <section className={cn(panelClass, 'mb-4 sm:mb-6')} aria-label="일정 보기 도구">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1 gap-y-3 px-2 py-3 sm:flex sm:flex-col sm:items-stretch sm:gap-4 sm:p-4 xl:flex-row xl:items-center xl:justify-between xl:p-5">
+                    <div className="col-span-2 flex min-w-0 items-center justify-between gap-2 sm:justify-start sm:gap-3">
+                        <div className="grid shrink-0 grid-cols-2 rounded-md border border-border bg-card p-1" aria-label="일정 보기 방식">
+                            <button
+                                type="button"
+                                onClick={() => setView('daily')}
+                                aria-pressed={view === 'daily'}
+                                className={cn(
+                                    'min-h-10 cursor-pointer whitespace-nowrap rounded px-3 text-xs font-semibold transition-colors active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:px-4',
+                                    view === 'daily'
+                                        ? 'bg-primary text-primary-ink'
+                                        : 'text-text-muted hover:bg-card-hover hover:text-text',
+                                )}
+                            >
+                                일간
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setView('weekly')}
+                                aria-pressed={view === 'weekly'}
+                                className={cn(
+                                    'min-h-10 cursor-pointer whitespace-nowrap rounded px-3 text-xs font-semibold transition-colors active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:px-4',
+                                    view === 'weekly'
+                                        ? 'bg-primary text-primary-ink'
+                                        : 'text-text-muted hover:bg-card-hover hover:text-text',
+                                )}
+                            >
+                                주간
+                            </button>
                         </div>
-                    )}
-                </div>
-
-                {view !== 'review' && (
-                    <div className="flex items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={() => setHiddenOnly((prev) => !prev)}
-                            className={cn(
-                                'cursor-pointer inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold transition',
-                                hiddenOnly
-                                    ? 'border-red-500/50 bg-red-500/10 text-red-300'
-                                    : 'border-[#3a3a44] bg-[#26262e] text-[#adadb8] hover:bg-[#2d2d36]',
-                            )}
-                        >
-                            <EyeOff className="h-3.5 w-3.5" />
-                            미노출
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => moveDate(-1)}
-                            className="cursor-pointer rounded-lg border border-[#3a3a44] bg-[#26262e] p-1.5 text-[#adadb8] transition hover:bg-[#2d2d36]"
-                            aria-label="이전"
-                        >
-                            <ChevronLeft className="h-4 w-4" />
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => moveDate(1)}
-                            className="cursor-pointer rounded-lg border border-[#3a3a44] bg-[#26262e] p-1.5 text-[#adadb8] transition hover:bg-[#2d2d36]"
-                            aria-label="다음"
-                        >
-                            <ChevronRight className="h-4 w-4" />
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setSelectedDate(dayjs())}
-                            className="cursor-pointer rounded-lg border border-[#3a3a44] bg-[#26262e] px-3 py-1.5 text-xs font-semibold text-[#efeff1] transition hover:bg-[#2d2d36]"
-                        >
-                            오늘
-                        </button>
+                        <div className="flex min-w-0 items-center gap-2 text-text">
+                            <Calendar className="hidden h-4 w-4 shrink-0 text-primary sm:block" aria-hidden="true" />
+                            <span
+                                className="min-w-0 text-xs font-semibold tabular-nums [overflow-wrap:anywhere] sm:text-sm"
+                                aria-live="polite"
+                            >
+                                {view === 'weekly' ? getDateRangeText(selectedDate) : selectedDate.format('YYYY.M.D')}
+                            </span>
+                        </div>
                     </div>
-                )}
-            </div>
 
-            {renderContent(data)}
+                    <div className="contents sm:flex sm:min-w-0 sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
+                        <div className="grid min-w-0 grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center gap-1 sm:w-auto sm:grid-cols-[2.5rem_9.75rem_2.5rem]">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => setSelectedDate((previous) => previous.subtract(1, view === 'daily' ? 'day' : 'week'))}
+                                aria-label={view === 'daily' ? '이전 날짜' : '이전 주'}
+                            >
+                                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                            </Button>
+                            <label className="min-w-0">
+                                <span className="sr-only">기준 날짜</span>
+                                <input
+                                    type="date"
+                                    value={selectedDateParam}
+                                    onChange={(event) => {
+                                        const nextDate = dayjs(event.target.value)
+                                        if (nextDate.isValid()) setSelectedDate(nextDate)
+                                    }}
+                                    className={cn(inputClass, 'min-w-0 px-2 font-mono text-[11px] tabular-nums sm:px-3 sm:text-xs')}
+                                />
+                            </label>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => setSelectedDate((previous) => previous.add(1, view === 'daily' ? 'day' : 'week'))}
+                                aria-label={view === 'daily' ? '다음 날짜' : '다음 주'}
+                            >
+                                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                            </Button>
+                        </div>
+                        <div className="contents sm:flex sm:items-center sm:gap-2">
+                            <div className="col-span-2 row-start-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-border pt-2 text-xs text-text-muted sm:contents">
+                                {!isLoading && !isError && (
+                                    <span className="whitespace-nowrap sm:hidden">
+                                        전체 <strong className="font-semibold tabular-nums text-text">{periodSummary.total}</strong>
+                                    </span>
+                                )}
+                                <Button
+                                    type="button"
+                                    variant={hiddenOnly ? 'destructive' : 'outline'}
+                                    size="sm"
+                                    onClick={() => setHiddenOnly((previous) => !previous)}
+                                    aria-pressed={hiddenOnly}
+                                    leftIcon={<EyeOff className="h-3.5 w-3.5" aria-hidden="true" />}
+                                    className="px-2 sm:px-3"
+                                >
+                                    미노출 {periodSummary.hidden}건
+                                </Button>
+                                {!isLoading && !isError && (
+                                    <span className="whitespace-nowrap sm:hidden">
+                                        시간 미정{' '}
+                                        <strong className="font-semibold tabular-nums text-text">{periodSummary.undecided}</strong>
+                                    </span>
+                                )}
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedDate(dayjs())}
+                                className="col-start-2 row-start-2 px-2 sm:px-3"
+                            >
+                                오늘
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+                {!isLoading && !isError && (
+                    <dl className="hidden divide-x divide-border border-t border-border sm:grid sm:grid-cols-4">
+                        {[
+                            { label: view === 'weekly' ? '주간 일정' : '일간 일정', value: periodSummary.total },
+                            { label: '노출', value: periodSummary.visible },
+                            { label: '미노출', value: periodSummary.hidden },
+                            { label: '시간 미정', value: periodSummary.undecided },
+                        ].map((item) => (
+                            <div key={item.label} className="min-w-0 px-4 py-3.5 sm:px-5">
+                                <dt className="text-[11px] font-semibold tracking-[0.04em] text-text-dim">{item.label}</dt>
+                                <dd className="mt-1 font-mono text-lg font-semibold tracking-[-0.03em] text-text">{item.value}</dd>
+                            </div>
+                        ))}
+                    </dl>
+                )}
+            </section>
+
+            {isLoading && (
+                <div className={panelClass}>
+                    <ListLoading className="py-16" rows={6} />
+                </div>
+            )}
+            {isError && (
+                <div className={panelClass}>
+                    <ListError
+                        message="일정 관리 데이터를 불러오는 중 오류가 발생했습니다."
+                        className="py-16"
+                        onRetry={() => {
+                            void Promise.all([refetchSchedule(), refetchCategories(), refetchStreamers()])
+                        }}
+                    />
+                </div>
+            )}
+            {!isLoading &&
+                !isError &&
+                (view === 'daily' ? (
+                    <DailyView items={selectedDay.items} categoryNames={categoryNames} onEdit={setEditingItem} onDelete={setDeletingItem} />
+                ) : (
+                    <WeeklyView
+                        days={displayedDays}
+                        selectedDate={selectedDateParam}
+                        categoryNames={categoryNames}
+                        onEdit={setEditingItem}
+                        onDelete={setDeletingItem}
+                    />
+                ))}
 
             {creating && (
                 <BroadcastFormModal
                     title="일정 추가"
                     submitLabel="저장"
                     initialValues={toFormValues(null, selectedDate)}
-                    pending={isFormPending}
+                    pending={createMutation.isPending}
                     categories={categoryOptions}
                     streamers={streamers}
                     onClose={() => setCreating(false)}
-                    onSubmit={handleCreate}
+                    onSubmit={create}
                 />
             )}
-
             {editingItem !== null && (
                 <BroadcastFormModal
                     title="일정 수정"
                     submitLabel="저장"
                     initialValues={toFormValues(editingItem, selectedDate)}
-                    pending={isFormPending}
+                    pending={updateMutation.isPending}
                     categories={categoryOptions}
                     streamers={streamers}
                     onClose={() => setEditingItem(null)}
-                    onSubmit={handleUpdate}
+                    onSubmit={update}
                 />
             )}
-
             {deletingItem !== null && (
                 <ConfirmModal
                     title="일정 삭제"
@@ -267,9 +336,7 @@ export default function BroadcastSchedulePage() {
                     itemName={deletingItem.title}
                     pending={deleteMutation.isPending}
                     onClose={() => setDeletingItem(null)}
-                    onConfirm={() => {
-                        void handleDelete()
-                    }}
+                    onConfirm={() => void remove()}
                 />
             )}
         </>

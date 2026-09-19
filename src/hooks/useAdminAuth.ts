@@ -1,10 +1,5 @@
 import { useEffect, useState } from 'react'
-import {
-    getAdminApiKey,
-    getAdminApiKeyEventName,
-    setAdminApiKey,
-    clearAdminApiKey,
-} from '../lib/apiClient'
+import { getAdminApiKey, getAdminApiKeyEventName, setAdminApiKey, clearAdminApiKey } from '../lib/apiClient'
 
 export function useAdminAuth() {
     const [apiKey, setApiKeyState] = useState<string>(() => getAdminApiKey())
